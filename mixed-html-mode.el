@@ -647,6 +647,11 @@ REGION-START bounds backward searches for brace context."
         (setq pos (1+ pos))))
     pos))
 
+;;; Change tracking
+
+(defvar-local mixed-html--last-regions nil
+  "Cached region list from the last fontification pass.")
+
 ;;; Main fontification function
 
 (defun mixed-html-fontify (start end)
@@ -695,11 +700,6 @@ Fontifies from START to END."
     (modify-syntax-entry ?\\ "\\" table)
     table)
   "Syntax table for `mixed-html-mode'.")
-
-;;; Change tracking
-
-(defvar-local mixed-html--last-regions nil
-  "Cached region list from the last fontification pass.")
 
 (defun mixed-html--after-change (beg _end _old-len)
   "After-change function that triggers refontification when regions change.
