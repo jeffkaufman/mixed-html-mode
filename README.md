@@ -37,6 +37,12 @@ Optionally byte-compile for faster fontification:
 emacs --batch -f batch-byte-compile mixed-html-mode.el
 ```
 
+Followed with:
+
+```elisp
+(load "/path/to/mixed-html-mode.elc")
+```
+
 It auto-activates on `.html` files.  To use it manually: `M-x
 mixed-html-mode`.
 
