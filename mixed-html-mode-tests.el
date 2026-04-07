@@ -30,6 +30,31 @@ OCCURRENCE defaults to 1 (first match)."
       (search-forward search-string))
     (get-text-property (match-beginning 0) 'face)))
 
+;;; Byte-compilation test
+
+(ert-deftest mhm-test-byte-compile-clean ()
+  "Byte-compiling mixed-html-mode.el should produce no warnings."
+  (let* ((el-file (expand-file-name
+                   "mixed-html-mode.el"
+                   (file-name-directory
+                    (or load-file-name buffer-file-name default-directory))))
+         (elc-file (concat el-file "c"))
+         (warning-buf "*Compile-Log*"))
+    (should (file-exists-p el-file))
+    ;; Kill any stale compile log
+    (when (get-buffer warning-buf)
+      (kill-buffer warning-buf))
+    (byte-compile-file el-file)
+    (let ((warnings (and (get-buffer warning-buf)
+                         (with-current-buffer warning-buf
+                           (goto-char (point-min))
+                           ;; Skip the header line
+                           (forward-line 2)
+                           (string-trim (buffer-substring (point) (point-max)))))))
+      (when (file-exists-p elc-file)
+        (delete-file elc-file))
+      (should (or (null warnings) (string-empty-p warnings))))))
+
 ;;; Region detection tests
 
 (ert-deftest mhm-test-regions-simple ()
