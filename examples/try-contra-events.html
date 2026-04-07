@@ -1,0 +1,526 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<html> <head>
+<title>Contra Dance Weekends, Camps, Festivals, and Other Special Events</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+</head>
+
+<body>
+<style>
+html, body {
+  height: 100vh;
+  margin: 0px;
+  padding: 0px
+}
+body {
+  background-color: rgba(44, 4, 128, 0.04);
+}
+#map_canvas_wrapper {
+  height: calc(100vh - 2em);
+}
+#map_canvas {
+  width: 100%;
+  height: 100%;
+}
+#content {
+  max-width: 40em;
+  margin-left: auto;
+  margin-right: auto;
+  box-sizing: border-box;
+}
+.dance-listing-outer, .no-events {
+  background-color: rgba(44, 4, 128, 0.2);
+  border-radius: 0.25em;
+  margin: 0.5em;
+  padding-left: 0.25em;
+  padding-bottom: 0.25em;
+  display: block;
+}
+.dance-listing {
+  text-decoration: none;
+  color: black;
+}
+.no-events {
+  padding: 1em;
+}
+.dance-date {
+  text-align: right;
+  border-radius: 0 0.25em;
+  background-color: rgba(44, 4, 128, 1);
+  float: right;
+  padding: 0.1em;
+  color: white;
+}
+.dance-name {
+  padding: 0.2rem;
+  font-size: 150%;
+}
+.dance-location {
+  padding: 0.2rem;
+  font-style: italic;
+}
+.dance-infobox-link {
+  padding: 0.2rem;
+}
+.dance-performers {
+  padding: 0.2rem;
+}
+.hide-map {
+  display: none;
+}
+.show-map {
+  display: block;
+}
+
+#filter_form {
+  margin: 0;
+  margin-bottom: 0.5em;
+}
+#filters {
+  margin-left: 0.5em;
+}
+#header {
+  margin-left: 0.5em;
+}
+input {
+  margin-top: 0.5em;
+  width: 20em;
+}
+h1 {
+  margin-bottom: 0em;
+  margin-top:0.10em;
+}
+.error {
+  border: 1px solid red;
+}
+.button-selected, .button-unselected {
+  width: 50%;
+  margin: 0;
+  padding: 0.5em;
+  box-sizing: border-box;
+  display: inline-block;
+  text-decoration: none;
+  text-align: center;
+  vertical-align: middle;
+  color: white;
+  height: 2em;
+}
+.button-selected {
+  background-color: rgba(44, 4, 128, 0.8)
+}
+.button-selected:hover {
+  background-color: rgba(44, 4, 128, 0.6)
+}
+.button-unselected {
+  background-color: rgba(44, 4, 128, 0.4)
+}
+.button-unselected:hover {
+  background-color: rgba(44, 4, 128, 0.2)
+}
+@media (min-width: 60em) {
+  #view-toggle {
+    display: none;
+  }
+  #map_canvas_wrapper {
+    display: block;
+    height: 100%;
+    flex-grow: 1;
+  }
+  #content {
+    width: 40em;
+    margin-left: initial;
+    margin-right: initial;
+    overflow: scroll;
+  }
+  .hide-map {
+    display: block;
+  }
+  #two-panes {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    height: 100%;
+  }
+}
+</style>
+
+<script>
+(g=>{var h,a,k,p="The Google Maps JavaScript API",c="google",l="importLibrary",q="__ib__",m=document,b=window;b=b[c]||(b[c]={});var d=b.maps||(b.maps={}),r=new Set,e=new URLSearchParams,u=()=>h||(h=new Promise(async(f,n)=>{await (a=m.createElement("script"));e.set("libraries",[...r]+"");for(k in g)e.set(k.replace(/[A-Z]/g,t=>"_"+t[0].toLowerCase()),g[k]);e.set("callback",c+".maps."+q);a.src=`https://maps.${c}apis.com/maps/api/js?`+e;d[q]=f;a.onerror=()=>h=n(Error(p+" could not load."));a.nonce=m.querySelector("script[nonce]")?.nonce||"";m.head.append(a)}));d[l]?console.warn(p+" only loads once. Ignoring:",g):d[l]=(f,...n)=>r.add(f)&&u().then(()=>d[l](f,...n))})({
+      key: "AIzaSyALrS4bNPhHaZ73dACaSxD-r6oht4CX7B8",
+      v: "weekly",
+});
+</script>
+
+<script>
+async function fetch_dances() {
+  const response = await fetch("events.json");
+  return await response.json();
+}
+
+let maps = null;
+let dances = null;
+async function load_all() {
+  [dances, maps] = await Promise.all([
+    fetch_dances(),
+    google.maps.importLibrary("maps")]);
+
+
+  tidy_dances();
+  load_dances();
+}
+
+function tidy_dances() {
+  const today_date = new Date();
+  const today_y = today_date.getFullYear();
+  const today_m = today_date.getMonth() + 1;  // 0-indexed
+  const today_d = today_date.getDate();
+
+  for (const dance of dances) {
+    dance.y = null;
+    dance.m = null;
+    dance.d = null;
+    if (dance.date) {
+      [dance.m, dance.d, dance.y] = dance.date.split("/");
+      dance.y = Number(dance.y);
+      dance.m = Number(dance.m);
+      dance.d = Number(dance.d);
+
+      if (dance.y != dance.year && dance.year > 2020) {
+        console.log("Bad year", dance.y, dance.year, dance);
+      }
+    } else {
+      // If we don't know when the dance is, go with the middle of the
+      // month it usually is in.
+      dance.m = Number(dance.typical_month);
+      dance.y = dance.year
+      dance.d = 15;
+    }
+
+    dance.in_future =
+      (dance.y > today_y) ||
+      (dance.y == today_y && dance.m > today_m) ||
+      (dance.y == today_y && dance.m == today_m && dance.d > today_d);
+  }
+
+  const to_remove = [];
+  // dance name -> best index
+  const seen = {};
+  for (let i = 0; i < dances.length; i++) {
+    const dance = dances[i];
+    if (dance.year < today_y - 1) {
+      to_remove.push(i);
+    } else if (dance.name in seen) {
+      const seen_dance = dances[seen[dance.name]];
+      if (seen_dance.in_future) {
+        to_remove.push(i);
+      } else {
+        to_remove.push(seen[dance.name]);
+        seen[dance.name] = i;
+      }
+    } else {
+      seen[dance.name] = i;
+    }
+  }
+  // Need to remove them in reverse order because we're removing by
+  // index and indexes will change as we delete.
+  to_remove.sort(function(a, b){return b - a});
+  for (const i of to_remove) {
+    dances.splice(i, 1);
+  }
+}
+
+const markers = [];
+let map = null;
+function load_dances() {
+  map = new maps.Map(map_canvas, {});
+  refresh_list();
+}
+
+
+function e(tag, text=null) {
+  const element = document.createElement(tag);
+  if (text) {
+    element.innerText = text;
+  }
+  return element;
+}
+
+const list_format_en = new Intl.ListFormat('en');
+
+
+function dance_html(y, m, d, dance) {
+  const dance_div_outer = e("div");
+  dance_div_outer.classList.add("dance-listing-outer");
+  const dance_div = e("a");
+  dance_div.classList.add("dance-listing");
+  dance_div.href = dance.url;
+  dance_div.target = "_blank";
+
+  let date_text = dance.date;
+  if (!dance.date) {
+    date_text = m + "/" + y + "?";
+  }
+  const date = e("div", date_text)
+  date.classList.add("dance-date");
+  dance_div.appendChild(date);
+
+  const name = e("div", dance.name)
+  name.classList.add("dance-name");
+  dance_div.appendChild(name);
+
+  const location = e("div", dance.location)
+  location.classList.add("dance-location");
+  dance_div.appendChild(location);
+
+  if (dance.callers || dance.bands) {
+    let performers_text = "";
+    if (dance.callers.length) {
+      performers_text += list_format_en.format(dance.callers) + " calling";
+    }
+    if (dance.callers.length && dance.bands.length) {
+      performers_text += " to ";
+    }
+    if (dance.bands.length) {
+      performers_text += list_format_en.format(dance.bands);
+    }
+    performers_text = performers_text.charAt(0).toUpperCase() + performers_text.slice(1);
+    const performers = e("div", performers_text);
+    performers.classList.add("dance-performers");
+    dance_div.appendChild(performers);
+  }
+
+  const dance_a = e("a", dance.url);
+  dance_a.classList.add("dance-infobox-link");
+  dance_a.href = dance.url;
+  dance_a.target = "_blank";
+
+  dance_div_outer.appendChild(dance_div);
+  dance_div_outer.appendChild(dance_a);
+
+  return dance_div_outer;
+}
+
+
+function refresh_list() {
+  if (map == null) return;
+  let infowindow_zindex = 1;
+
+  while (dance_list.children.length) {
+    dance_list.removeChild(dance_list.firstChild);
+  }
+  for (const marker of markers) {
+    marker.setMap(null);
+  }
+  markers.length = 0;
+
+  score_dance = []
+
+  let target_y = null;
+  let target_m = null;
+  let target_d = null;
+
+  const params = new URLSearchParams();
+
+  input_date.classList.remove("error");
+  if (input_date.value) {
+    let date_error = false;
+    if (/^20\d\d-?$/.test(input_date.value)) {
+      target_y = Number(input_date.value.replace(/-?$/, ''));
+    } else if (/^20\d\d-\d\d?-?$/.test(input_date.value)) {
+      [target_y, target_m] = input_date.value.replace(/-?$/, '').split("-");
+      target_y = Number(target_y);
+      target_m = Number(target_m) || null;
+    } else if (/^20\d\d-\d\d?-\d\d?$/.test(input_date.value)) {
+      [target_y, target_m, target_d] = input_date.value.split("-");
+      target_y = Number(target_y);
+      target_m = Number(target_m);
+      target_d = Number(target_d) || null;
+    } else {
+      input_date.classList.add("error");
+      date_error = true;
+    }
+    if (!date_error) {
+      params.append("date", input_date.value);
+    }
+  }
+
+  let target_state = null;
+  input_state.classList.remove("error");
+  if (input_state.value) {
+    input_state.value = input_state.value.toUpperCase();
+    if (/^[A-Z][A-Z]$/.test(input_state.value)) {
+      target_state = input_state.value;
+      params.append("state", input_state.value);
+    } else {
+      input_state.classList.add("error");
+    }
+  }
+
+  if (input_performer.value) {
+    params.append("performer", input_performer.value);
+  }
+  if (input_name.value) {
+    params.append("name", input_name.value);
+  }
+
+  const marker_info = {}; // location_json -> [ [y, m, d, dance], ... ]
+
+  const bounds = new google.maps.LatLngBounds();
+  for (const dance of dances) {
+    if (!dance.latlng || !dance.name || !dance.url) continue;
+
+    if (!dance.in_future) continue;
+
+    let exclude_by_location = target_state && !dance.location.endsWith(target_state);
+
+    if (target_y != null && target_y != dance.y) continue;
+    if (target_m != null && target_m != dance.m) continue;
+    // If they say 2020-01-01 and all we know is the dance is probably
+    // in 2020-01, still include it.
+    if (target_d != null && dance.date && target_d != dance.d) continue;
+
+    if (input_performer.value &&
+        !(""+dance.bands).toLowerCase().includes(
+          input_performer.value.toLowerCase()) &&
+        !(""+dance.callers).toLowerCase().includes(
+          input_performer.value.toLowerCase())) {
+      continue;
+    }
+    if (input_name.value &&
+        !(""+dance.name).toLowerCase().includes(
+          input_name.value.toLowerCase())) {
+      continue;
+    }
+
+    const lat = dance.latlng[0];
+    const lng = dance.latlng[1];
+
+    const location = {lat, lng};
+    const location_json = JSON.stringify(location);
+    if (!(location_json in marker_info)) {
+      marker_info[location_json] = [];
+    }
+    marker_info[location_json].push([dance.y, dance.m, dance.d, dance]);
+
+    if (!exclude_by_location) {
+      bounds.extend(location);
+      score_dance.push([dance.y, dance.m, dance.d, dance]);
+    }
+  }
+  function dance_sorter([y1, m1, d1, dance1], [y2, m2, d2, dance2]) {
+    if (y1 != y2) return y1 - y2;
+    if (m1 != m2) return m1 - m2;
+    if (d1 != d2) return d1 - d2;
+    return 0;
+  }
+  score_dance.sort(dance_sorter);
+
+  for (const [y, m, d, dance] of score_dance) {
+    dance_list.appendChild(dance_html(y, m, d, dance));
+  }
+
+  if (!dance_list.children.length) {
+    const no_div = e("div", "No matching events found.");
+    no_div.classList.add("no-events");
+    dance_list.appendChild(no_div);
+  }
+
+  for (const location_json in marker_info) {
+    const values = marker_info[location_json];
+    values.sort(dance_sorter);
+    const position = JSON.parse(location_json);
+    const names = [];
+    const contents = [];
+    for (const [y, m, d, dance] of values) {
+      names.push(dance.name),
+      contents.push(dance_html(y, m, d, dance).outerHTML);
+    }
+    const title = list_format_en.format(names);
+    const marker = new google.maps.Marker({position, title, map});
+    marker.addListener("click", () => {
+      new google.maps.InfoWindow({
+        content: "<div>" + contents.join("") + "</div>",
+        ariaLabel: title,
+        zIndex: infowindow_zindex++,
+      }).open({anchor: marker, map});
+    });
+    markers.push(marker);
+  }
+  if (score_dance.length && score_dance.length < dances.length) {
+    map.fitBounds(bounds);
+  } else {
+    const us_bounds = new google.maps.LatLngBounds();
+    us_bounds.extend({lat: 49, lng: -124});
+    us_bounds.extend({lat: 24, lng: -72});
+    map.fitBounds(us_bounds);
+  }
+
+  if (params.size) {
+    history.pushState(null,null,'#' + params);
+  }
+}
+
+document.body.onload = load_all;
+</script>
+<div id=view-toggle>
+<a id=listings_link class=button-selected href=#>Listings</a><a id=map_link class=button-unselected href=#>Map</a>
+</div>
+<div id=two-panes>
+<div id=content>
+  <div id=header>
+  <h1>Contra Dance Events</h1>
+  <i>Weekends, camps, festivals, and other special events</i>
+  </div>
+  <div id=filters>
+  <form id=filter_form>
+  <input id=input_date name=date placeholder="date: 1937-01-01 or 1937-01 or 1937">
+  <input id=input_state name=state placeholder="state: NC">
+  <input id=input_performer name=performer placeholder="performer: Yankee Ingenuity or Ted Sanella">
+  <input id=input_name name=name placeholder="name: NEFFA">
+
+  </form>
+
+  Correction? Addition?  Write to jeff@jefftk.com or leave a comment on the
+  <a target=_blank href="https://docs.google.com/spreadsheets/d/1fQq7pTtNVMYVRgOPbjNz2jnyw4RABGrQoplrSQntbn8/edit">spreadsheet</a>.
+
+  </div>
+
+  <div id=dance_list></div>
+</div>
+<div id=map_canvas_wrapper class=hide-map>
+  <div id=map_canvas></div>
+</div>
+</div>
+<script>
+  let in_params = new URLSearchParams();
+  if (location.hash) {
+    in_params = new URLSearchParams(location.hash.slice(1));
+  }
+  for (const input of document.getElementsByTagName("input")) {
+    if (input.name && in_params.has(input.name)) {
+      input.value = in_params.get(input.name);
+    }
+    input.oninput = refresh_list;
+  }
+  function select_mode(is_map) {
+    listings_link.classList.add(is_map ? "button-unselected" : "button-selected");
+    listings_link.classList.remove(is_map ? "button-selected" : "button-unselected");
+    map_link.classList.add(is_map ? "button-selected" : "button-unselected");
+    map_link.classList.remove(is_map ? "button-unselected" : "button-selected");
+
+    content.style.display = is_map ? "none" : "block";
+    map_canvas_wrapper.classList.add(is_map ? "show-map" : "hide-map")
+    map_canvas_wrapper.classList.remove(is_map ? "hide-map" : "show-map")
+
+    refresh_list();
+  }
+
+  listings_link.onclick = function() {
+    select_mode(/*is_map=*/false);
+  }
+  map_link.onclick = function() {
+    select_mode(/*is_map=*/true);
+  }
+
+  visualViewport.onresize = refresh_list;
+</script>
+</body> </html>

@@ -1,0 +1,254 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<html> <head><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Whistle Synth</title>
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-27645543-1"></script><script>window.dataLayer = window.dataLayer || [];function gtag(){dataLayer.push(arguments);}gtag('js', new Date());gtag('config', 'UA-27645543-1');</script></head>
+
+<style>
+  #instructions {
+    border: 1px solid black;
+    border-radius: 0.25em;
+    margin: 1em;
+    padding-left: 1em;
+    max-width: 40em;
+  }
+  .error {
+    max-width: 40em;
+    border: 2px solid red;
+    border-radius: 0.25em;
+    margin: 1em;
+    padding: 1em;
+    display: none;
+  }
+  #controls {
+    display: none;
+  }
+  table td {
+    padding: 0.2em 0.5em;
+  }
+  input[type=text] {
+    width: 4em;
+  }
+  input[type=range] {
+    width: 10em;
+    vertical-align: middle;
+  }
+  button {
+    margin-top: 0.1em;
+  }
+</style>
+
+<style>
+.headfoot ul {
+  list-style-type: none;
+  margin: 0;
+  padding: 0;
+}
+.headfoot li {
+  display: inline;
+  margin-left: 5px;
+  margin-right: 5px;
+}
+</style>
+
+<body>
+  <div class=headfoot>
+  <ul>
+  <li><a href="/">Jeff Kaufman</a></li>
+  <li><a href="/news/all">Posts</a></li>
+  <li><a href="/news.rss">RSS</a></li>
+  <li><a href="/contact">Contact</a></li>
+  </div>
+  <hr>
+
+<h1>Whistle Synth</h1>
+
+<div id=isMobile class=error>
+  Mobile browsers are not recommended: they are generally not fast enough.  You're welcome to continue if you want to, but it probably won't sound good and may not work at all.
+</div>
+
+<div id=noAudioWorklet class=error>
+  Your browser doesn't support AudioWorklet, which this relies on.  This isn't going to work.  Try Firefox, Chrome, or Edge instead?
+</div>
+
+<div id=instructions>
+<h2>Instructions</h2>
+<p>
+
+This is a synthesizer that you control by whistling.  It produces a supersaw lead sound.  To begin, put on headphones, click "start", and whistle.
+
+  <p>
+
+Works best in Firefox, but also works in Chrome and Edge.
+
+ <p>
+
+<button id=startButton>start</button>
+
+</div>
+<div id=controls>
+<button id=muteAll>mute</button> <button id=reset>reset</button>
+
+<p>
+
+  <table>
+  <tr><td><label for=volume>volume:</label>
+      <td><input type=range id=volume min=0 max=1 step=0.01 value=0.3>
+          <span id=volumeVal>0.3</span>
+      <td>Output level.
+  <tr><td><label for=octaveShift>octave shift:</label>
+      <td><input type=range id=octaveShift min=1 max=3 step=1 value=2>
+          <span id=octaveShiftVal>2</span>
+      <td>Octaves below whistle (1-3).
+  <tr><td><label for=detune>detune:</label>
+      <td><input type=range id=detune min=0 max=100 step=1 value=40>
+          <span id=detuneVal>40</span> cents
+      <td>Detuning spread.
+  <tr><td><label for=voices>voices:</label>
+      <td><input type=range id=voices min=1 max=7 step=2 value=7>
+          <span id=voicesVal>7</span>
+      <td>Number of saw layers (1-7).
+  <tr><td><label for=attackMs>attack:</label>
+      <td><input type=range id=attackMs min=1 max=200 step=1 value=30>
+          <span id=attackMsVal>30</span> ms
+      <td>Attack time.
+  <tr><td><label for=releaseMs>release:</label>
+      <td><input type=range id=releaseMs min=10 max=500 step=1 value=100>
+          <span id=releaseMsVal>100</span> ms
+      <td>Release time.
+  <tr><td><label for=pitchSmooth>pitch smooth:</label>
+      <td><input type=range id=pitchSmooth min=0.01 max=1 step=0.01 value=0.1>
+          <span id=pitchSmoothVal>0.1</span>
+      <td>Pitch tracking smoothness.
+  <tr><td><label for=gate>gate:</label>
+      <td><input type=range id=gate min=0 max=9 step=1 value=4>
+          <span id=gateVal>4</span>
+      <td>Noise gate (0=tight, 9=open).
+</table>
+
+</div>
+
+<div style=text-align:right>
+<a href="/p/better-whistle-synth">details</a>
+</div>
+
+
+<script>
+if (!window.AudioWorklet) {
+  window.noAudioWorklet.style.display = "block";
+}
+
+if (navigator.userAgent.includes("Android") ||
+    navigator.userAgent.includes("iOS")) {
+  window.isMobile.style.display = "block";
+}
+
+var VOLUMES = [0.026, 0.039, 0.059, 0.088, 0.132, 0.198, 0.296, 0.444, 0.667, 1.000];
+function getGateSquared(gateValue) {
+  gateValue = Math.max(0, Math.min(9, Math.round(gateValue)));
+  var ratio = VOLUMES[9 - gateValue] / VOLUMES[5];
+  return ratio * ratio;
+}
+
+var playerNode;
+var audioCtx;
+var micStream;
+var micNode;
+
+async function start() {
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)({latencyHint: 0});
+  micStream = await navigator.mediaDevices.getUserMedia({
+    audio: {
+      echoCancellation: false,
+      latency: 0,
+      noiseSuppresion: false,
+      autoGainControl: false,
+    },
+  });
+  micNode = new MediaStreamAudioSourceNode(audioCtx, { mediaStream: micStream });
+  await audioCtx.audioWorklet.addModule('combined.js?cb=' + Math.random());
+  playerNode = new AudioWorkletNode(audioCtx, 'synth');
+  micNode.connect(playerNode)
+  playerNode.connect(audioCtx.destination);
+  playerNode.port.onmessage = configChange;
+}
+
+function getConfig() {
+  var gateValue = parseInt(gate.value, 10);
+  return {
+    volume: parseFloat(volume.value),
+    octave_shift: parseInt(octaveShift.value, 10),
+    detune_cents: parseFloat(detune.value),
+    num_voices: parseInt(voices.value, 10),
+    attack_ms: parseFloat(attackMs.value),
+    release_ms: parseFloat(releaseMs.value),
+    pitch_smooth: parseFloat(pitchSmooth.value),
+    gate_squared: getGateSquared(gateValue),
+    rangeLow: 588,
+    rangeHigh: 3150,
+  };
+}
+
+function configChange() {
+  if (playerNode) {
+    playerNode.port.postMessage(getConfig());
+  }
+}
+
+function setDefaults() {
+  volume.value = 0.3;
+  octaveShift.value = 2;
+  detune.value = 40;
+  voices.value = 7;
+  attackMs.value = 30;
+  releaseMs.value = 100;
+  pitchSmooth.value = 0.1;
+  gate.value = 4;
+  updateAllDisplays();
+  configChange();
+}
+
+function updateAllDisplays() {
+  volumeVal.textContent = volume.value;
+  octaveShiftVal.textContent = octaveShift.value;
+  detuneVal.textContent = detune.value;
+  voicesVal.textContent = voices.value;
+  attackMsVal.textContent = attackMs.value;
+  releaseMsVal.textContent = releaseMs.value;
+  pitchSmoothVal.textContent = pitchSmooth.value;
+  gateVal.textContent = gate.value;
+}
+
+var running = false;
+startButton.addEventListener("click", function() {
+  window.instructions.style.display = "none";
+  window.controls.style.display = "block";
+  running = true;
+  start();
+});
+
+muteAll.addEventListener("click", function() {
+  if (running) {
+    playerNode.disconnect(audioCtx.destination);
+    muteAll.textContent = "unmute";
+    running = false;
+  } else {
+    playerNode.connect(audioCtx.destination);
+    muteAll.textContent = "mute";
+    running = true;
+  }
+});
+
+reset.addEventListener("click", setDefaults);
+
+// Wire up all range inputs to update their display and send config
+var rangeInputs = document.querySelectorAll("input[type=range]");
+for (var i = 0; i < rangeInputs.length; i++) {
+  rangeInputs[i].addEventListener("input", function() {
+    updateAllDisplays();
+    configChange();
+  });
+}
+
+updateAllDisplays();
+</script>
+</html>

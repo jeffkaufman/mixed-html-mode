@@ -1,0 +1,225 @@
+<html>
+<title>Metahomoviria</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  .warning {
+    border: 4px solid red;
+    border-radius: 0.25em;
+  }
+  .highlight {
+    font-weight: bold;
+  }
+  .hide {
+    display: none;
+  }
+  #success {
+    border: 2px solid black;
+    border-radius: 0.25em;
+    padding: 1em;
+  }
+  a {
+    text-decoration: none;
+  }
+  ul {
+    padding-inline-start: 1em;
+  }
+</style>
+<body>
+<h1>Metahomoviria</h1>
+
+This is a game where you're trying to guess which human-infecting
+virus the computer has chosen.  Each time you guess the computer will
+reveal the lowest taxonomic clade that they both belong to.  For
+example, SARS and Influenza are both RNA viruses that use RNA polymerase, so
+if you'd guessed SARS and the answer were the Flu then it would tell you
+they were both Orthornavirae (RNA Polymerase Viruses).
+
+<p>
+
+Guess a species of human-infecting viruses:
+
+  <p>
+
+  <input list=hv_datalist id=hv_selector size=45></input>
+  <datalist id=hv_datalist></datalist>
+
+  <div id=success class=hide>
+  It was <span id=target_name></span> and you guessed it; you win!
+  <br>
+  <br>
+  Refresh the page to play again.
+  </div>
+
+  <ul id=tree_root></ul>
+
+  <p>
+  
+  <button id=reveal_answer>Reveal Answer</button>
+
+  <p>
+  
+  <button id=reveal_tree>Reveal Entire Taxonomy</button>
+
+  <p>
+  
+  <a href="https://github.com/jeffkaufman/metahomoviria">source code</a>
+
+  <p>
+
+  <i>Inspired by <a href="https://metazooa.com/">Metazooa</a></i>
+
+
+<script>
+fetch("data.json").then(r => {
+  if (!r.ok) {
+    throw new Error(`Error status code: ${r.status}`);
+  }
+  return r.json();
+}).then(data => {
+  render(data);
+})
+
+function build_children(parent) {
+  const children = {};
+  for (const [child_taxid, parent_taxid] of Object.entries(parent)) {
+    if (!children[parent_taxid]) {
+      children[parent_taxid] = [];
+    }
+    children[parent_taxid].push(child_taxid);
+  }
+  return children;
+}
+
+function build_leaves(parent, children, names) {
+  const leaves = [];
+  for (const [child_taxid, parent_taxid] of Object.entries(parent)) {
+    if (!children[child_taxid]) {
+      leaves.push([names[child_taxid][0], child_taxid]);
+    }
+  }
+  leaves.sort((a, b) => a[0].localeCompare(b[0]));
+  return leaves;
+}
+
+function render_whole_tree(children, names, highlight_taxid, target_taxid) {
+  window.tree_root.innerHTML = '';
+  render_tree(children, names, highlight_taxid, target_taxid, window.tree_root, "1");
+}
+
+function render_tree(children, names, highlight_taxid, target_taxid, ul, parent_taxid) {
+  for (const child_taxid of children[parent_taxid]) {
+    if (children[child_taxid] && children[child_taxid].length == 1) {
+      render_tree(children, names, highlight_taxid, target_taxid, ul, child_taxid);
+    } else {
+      const li = document.createElement("li");
+      if (child_taxid == highlight_taxid || child_taxid == target_taxid) {
+        li.classList.add("highlight");
+      }
+      if (child_taxid == target_taxid && highlight_taxid != target_taxid) {
+        li.innerText = "???";
+      } else {
+        const a = document.createElement("a");
+        a.innerText = names[child_taxid][0];
+        a.target = "_blank";
+        const search_name = names[child_taxid][0].replace(/\s*\([^)]*\)\s*/, '');
+        
+        // a.href = `https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?mode=Tree&id=${child_taxid}&lvl=3&lin=f&keep=1&srchmode=1&unlock`;
+        a.href = `https://en.wikipedia.org/wiki/${search_name}`;
+        li.appendChild(a);
+      }
+
+      ul.appendChild(li);
+      if (children[child_taxid]) {
+        const child_ul = document.createElement("ul");
+        li.appendChild(child_ul);
+        render_tree(children, names, highlight_taxid, target_taxid, child_ul, child_taxid);
+      }
+    }
+  }
+}
+
+function render_hv_list(leaves, guesses) {
+  window.hv_datalist.innerHTML = '';
+  for (const [name, taxid] of leaves) {
+    let already_guessed = false;
+    for (const [name_guessed, taxid_guessed] of guesses) {
+      if (taxid == taxid_guessed) {
+        already_guessed = true;
+        break;
+      }
+    }
+    if (already_guessed) {
+      continue;
+    }
+    
+    const option = document.createElement("option");
+    option.value = name;
+    window.hv_datalist.appendChild(option);
+  }
+}
+
+function handle_guess(name, taxid, leaves, guesses, target, parent, names) {
+  guesses.push([name, taxid]);
+  const guesses_including_target = [target, ...guesses];
+
+  const guess_parent = {};
+  for (const [guess_name, guess_taxid] of guesses_including_target) {
+    let cur_taxid = guess_taxid;
+    while (cur_taxid && cur_taxid != "1") {
+      guess_parent[cur_taxid] = parent[cur_taxid];
+      cur_taxid = parent[cur_taxid];
+    }
+  }
+  const guess_children = build_children(guess_parent);
+  const [target_name, target_taxid] = target;
+  render_whole_tree(guess_children, names, taxid, target_taxid);
+  render_hv_list(leaves, guesses);
+}
+
+function expand_all(guesses, leaves, data, target) {
+  for (const guess of leaves) {
+    handle_guess(guess[0], guess[1], leaves, guesses, guess, data.parent, data.names);
+  }
+  handle_guess(target[0], target[1], leaves, guesses, target, data.parent, data.names);
+}
+
+function render(data) {
+  const children = build_children(data.parent);
+  const leaves = build_leaves(data.parent, children, data.names);
+  const guesses = [];
+  const target = leaves[Math.floor(Math.random() * leaves.length)];
+  const [target_name, target_taxid] = target;
+
+  render_hv_list(leaves, guesses);
+  
+  hv_selector.onchange = function(e) {
+    hv_selector.classList.remove("warning");
+    const selected_value = e.target.value;
+    for (const [name, taxid] of leaves) {
+      if (name == selected_value) {
+        e.target.value = "";
+        handle_guess(name, taxid, leaves, guesses, target, data.parent, data.names);
+        if (taxid == target_taxid) {
+          window.hv_selector.classList.add("hide");
+          window.success.classList.remove("hide");
+          window.target_name.innerText = target_name;
+        }
+        
+        return;
+      }
+    }
+    hv_selector.classList.add("warning");
+  };
+
+  reveal_tree.onclick = function(e) {
+    expand_all(guesses, leaves, data, target);
+  };
+
+  reveal_answer.onclick = function(e) {
+    handle_guess(target[0], target[1], leaves, guesses, target,
+                 data.parent, data.names);
+  };
+}
+
+</script>
+</html>

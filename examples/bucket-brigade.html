@@ -1,0 +1,1514 @@
+<html>
+<head>
+<meta content="text/html;charset=utf-8" http-equiv="Content-Type">
+<meta content="utf-8" http-equiv="encoding">
+<title>Bucket Brigade</title>
+<style>
+:root {
+  --theme-light: rgb(224, 242, 242);
+  --theme-medium: rgb(186, 226, 227);
+  --theme-dark: rgb(145, 209, 210);
+}
+.warning {
+  border: 1px dashed red;
+  border-radius: 0.25em;
+  max-width: 30em;
+  margin: 1em;
+  padding: 1em;
+}
+.note {
+  border: 1px dashed grey;
+  border-radius: 0.25em;
+  max-width: 45em;
+  margin: 1em;
+  padding: 1em;
+}
+#advancedSettingsOn, #metronomeOn, #roundsOn {
+  display: none;
+}
+#calibration, #mainInterface, #mainApp {
+  display: none;
+}
+#noInputsAvailable {
+  display: none;
+}
+#estQuality {
+  border: 1px solid #aaa;
+  border-radius: 1em;
+  padding: 1em;
+  margin: 1em;
+  width: calc(100vw - 8em);
+  box-sizing: border-box;
+}
+#est25to75 {
+  font-size: 400%;
+}
+#estLatency {
+  font-size: 200%;
+}
+#activeUsers {
+  margin-left: 1em;
+}
+#chatWindow {
+  width: 15em;
+  display: flex;
+  flex-direction: column;
+}
+#chatDisplay {
+  overflow-y: scroll;
+  flex-grow: 1;
+  word-wrap: break-word;
+}
+#chatDisplay > * {
+  margin: 0.5em;
+}
+#chatForm {
+  margin: 0;
+}
+#chatForm > input {
+  display: block;
+  width: 100%;
+}
+.chatName {
+  font-style: italic;
+}
+#chatEntry {
+  width: 100%;
+}
+#lostConnectivity {
+  display: none;
+}
+#noAudioInputInstructions {
+  display: none;
+}
+#tutorial > div {
+  margin: 1em;
+}
+#tutorial button {
+  margin: 0.25em;
+}
+#chooseCamera {
+  display: none;
+}
+.headphoneAdvice,
+#q_password,
+#q_singing_listening,
+#q_headphones_present,
+#q_wired_headphones_available,
+#q_headphones_wired,
+#final_attach_wired,
+#final_wired_headphones,
+#final_detach_wireless,
+#final_no_headphones{
+  display: none;
+}
+
+#volumeCalibration {
+  display: none;
+}
+
+#backingTrack { display: none; }
+#provideLyrics { display: none; }
+#uploadImage { display: none; }
+#imageUploader { display: none; }
+#imageUploadOk { display: none; }
+#imageUploadError { display: none; }
+#uploadBackingTrack { display: none; }
+#backingTrackUploader { display: none; }
+#backingTrackUploadOk { display: none; }
+#backingTrackUploadError { display: none; }
+
+#uploadSpinner {
+  position: absolute;
+  z-index: 3;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(255, 255, 255, 0.8);
+  display: none;
+  justify-content: center;
+  align-items: center;
+}
+
+.buttonGroup {
+  border: 1px solid #aaa;
+  padding: 0.2em;
+  border-radius: 0.25em;
+}
+
+#crash {
+  display: none;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background-color: white;
+}
+#crashBug {
+  display: none;
+}
+#nameSelector {
+  display: none;
+}
+#latencyCalibrationFailed {
+  border: 1px dashed red;
+  border-radius: 0.25em;
+  margin: 1em;
+  padding: 1em;
+}
+#mixingConsole {
+  border: 1px solid black;
+}
+.consoleChannel {
+  margin: 0.5em;
+}
+.consoleChannel > * {
+  display: inline-block;
+}
+.mixerVolume {
+  width: 100px;
+  height: 1em;
+  margin-left: 0.1em;
+}
+.mixerVolumeIndicator {
+  width: 50%;
+  height: 100%;
+  background: blue;
+  display: inline-block;
+}
+.channelName {
+  width: 16em;
+  overflow: hidden;
+}
+.channelVolumeInput {
+  width: 4em;
+}
+.activeButton {
+  background-color: red;
+}
+button.edited {
+  background-color: yellow;
+}
+input.editing {
+  background-color: wheat;
+}
+input.edited {
+  background-color: yellow;
+}
+#backingVolumeSlider {
+  width: 15em;
+}
+#changeName {
+  width: 6em;
+}
+@media only screen and (min-width: 1400px) {
+  #backingVolumeSlider {
+    width: 30em;
+  }
+  #changeName {
+    width: 12em;
+  }
+}
+#backingSliderDiv {
+  display: none;
+}
+#remainderWindow {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: scroll;
+}
+#buckets {
+  flex-grow: 1;
+  display: none;
+  flex-direction: row;
+  flex-wrap: wrap;
+  margin: 0.5em;
+}
+#buckets.fullscreen {
+  position: fixed;
+  margin: 0;
+  top: 0;
+  left: 0;
+  background-color: black;
+  width: 100vw;
+  height: 100vw;
+  padding: 0;
+}
+
+#unbucketedUsers {
+  flex-grow: 1;
+  text-align: center;
+}
+.bucket {
+  flex-grow: 1;
+  display: inline-block;
+  border: 1px solid #aaa;
+  border-radius: 0.25em;
+  margin: 0.5em;
+  width: 10em;
+  overflow: hidden;
+}
+.bucket > * {
+  margin : 0.5em;
+}
+#buckets.fullscreen .bucket > * {
+  margin : 0;
+}
+.bucketTitle {
+  width: 100%;
+  border-radius: 0.25em 0.25em 0 0;
+  border-bottom: 1px solid #aaa;
+  margin: 0;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+}
+#buckets.fullscreen .bucket {
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  flex-grow: unset;
+  width: unset;
+}
+#buckets.fullscreen .bucketTitle {
+  display: none;
+}
+#buckets.fullscreen .participantInfo {
+  display: none;
+}
+#buckets.fullscreen .participant {
+  border-radius: 0;
+  border: none;
+}
+.bucketTitle > button {
+  margin: 0.25em;
+  margin-right: 0.5em;
+}
+.bucketName {
+  font-weight: bold;
+  margin: 0.25em;
+  margin-left: 0.5em;
+}
+#roundsSettings {
+  border: 1px solid black;
+  border-radius: 0.25em;
+  padding: 0.5em;
+}
+#runningStatus {
+  display: inline-block;
+}
+#bucketingGuide {
+  display: none;
+  margin: 1em;
+}
+
+body {
+  margin: 0;
+}
+
+#page {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: var(--theme-light);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+
+#topbar {
+  width: 100%;
+  background-color: var(--theme-medium);
+  padding-bottom: 0.5em;
+}
+
+#toplinks {
+  display: flex;
+  align-items: baseline;
+}
+
+#logoAndName {
+  flex-grow: 1;
+}
+
+#toplinks > a {
+  padding: 1em;
+}
+
+.middlePane {
+  display: none;
+  flex-grow: 1;
+  overflow-y: scroll;
+}
+
+#middle > * {
+  overflow-y: scroll;
+}
+
+
+#noAudioWorklet {
+  display: block;
+}
+
+#isMobile {
+  display: none;
+}
+
+.middlePane > * {
+  margin: 1em;
+}
+
+#booktime > div {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+}
+#booktimeDescription {
+  margin: 1em;
+}
+
+#calendar {
+  flex-grow: 1;
+}
+
+#tabrow {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  background-color: var(--theme-medium);
+}
+
+#tabbar {
+  display: flex;
+  align-items: baseline;
+}
+
+#tabbarLogo {
+  margin: 0.25em;
+  position: relative;
+  top: 6px;
+  display: none;
+  margin-top: -5px;
+}
+
+#tabbar > span {
+  padding: 0.5em;
+  padding-bottom: 0.35em;
+  background-color: var(--theme-dark);
+  border-radius: 0.5em 0.5em 0 0;
+  border: 1px solid #aaa;
+  border-bottom: 0;
+  border-left: 0;
+}
+
+#tabbar > .activeTab {
+  background-color: var(--theme-light);
+}
+
+#advancedSettingsTab, #debugTab {
+  display: none;
+}
+
+#controlbar {
+  display: flex;
+  background-color: var(--theme-medium);
+  border-top: 1px solid black;
+  align-items: baseline;
+}
+
+
+#controlbar > * {
+  margin: 0.5em;
+}
+
+#topbar > * {
+  margin-left: 1em;
+  margin-right: 1em;
+}
+
+#bottombar > * {
+  margin: 1em;
+}
+
+#currentEvent {
+  margin-left: 1em;
+  margin-bottom: 0.25em;
+}
+
+h1 {
+ display: inline-block;
+ font-family: sans-serif;
+}
+
+#mainInterface {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow-y: hidden;
+  align-items: stretch;
+  display: grid;
+  grid-template-rows: min-content auto
+}
+
+#bucketsAndChat {
+  display: flex;
+  flex-direction: row;
+  overflow-y: hidden;
+}
+
+#toplinks img {
+  position: relative;
+  top: 1em;
+}
+
+#audioOffset {
+  width: 2.5em;
+  text-align: right;
+  margin-right: 0.1em;
+}
+
+#rememberedCalibrationInstructions, #latencyCalibrationInstructions {
+  display: none;
+}
+
+#activeLeader {
+  display: none;
+}
+
+#lagmute {
+  display: none;
+}
+
+#spectatorMode {
+  display: none;
+}
+#noCameraFound {
+  display: none;
+}
+.participant {
+  display: none;
+  background-color: white;
+  width: 160;
+  overflow: hidden;
+  min-height: 2em;
+  border-radius: 0.25em;
+  border: 1px solid #ccc;
+}
+.dominant-speaker {
+  border: 1px solid #0b0;
+}
+.muted {
+  border: 1px solid #d00;
+}
+#leavePresentationMode {
+  display: none;
+}
+.participantInfo {
+  margin: 0.25em;
+}
+.participant > video, .participant > img {
+  width: 160px;
+}
+#buckets.fullscreen .participant > video, #buckets.fullscreen .participant > img {
+  width: 100%;
+}
+#buckets.fullscreen .bucket {
+  width: 100vw;
+  height: 100vh;
+  background-color: black;
+}
+#buckets.fullscreen .participant {
+  width: 160px;
+  background-color: black;
+}
+#buckets.fullscreen .participant:only-child {
+  width: 100vw;
+  height: 100vh;
+}
+#buckets.fullscreen .participant:first-child:nth-last-child(2),
+#buckets.fullscreen .participant:first-child:nth-last-child(2) ~ .participant {
+  width: 50vw;
+  height: 100vh;
+}
+#buckets.fullscreen .participant:first-child:nth-last-child(3),
+#buckets.fullscreen .participant:first-child:nth-last-child(3) ~ .participant {
+  width: 33.33333vw;
+  height: 100vh;
+}
+#buckets.fullscreen .participant:first-child:nth-last-child(4),
+#buckets.fullscreen .participant:first-child:nth-last-child(4) ~ .participant {
+  width: 50vw;
+  height: 50vh;
+}
+#buckets.fullscreen .participant:first-child:nth-last-child(5),
+#buckets.fullscreen .participant:first-child:nth-last-child(5) ~ .participant,
+#buckets.fullscreen .participant:first-child:nth-last-child(6),
+#buckets.fullscreen .participant:first-child:nth-last-child(6) ~ .participant {
+  width: 33.333333vw;
+  height: 50vh;
+}
+#buckets.fullscreen .participant:first-child:nth-last-child(7),
+#buckets.fullscreen .participant:first-child:nth-last-child(7) ~ .participant,
+#buckets.fullscreen .participant:first-child:nth-last-child(8),
+#buckets.fullscreen .participant:first-child:nth-last-child(8) ~ .participant {
+  width: 25vw;
+  height: 50vh;
+}
+#buckets.fullscreen .participant:first-child:nth-last-child(9),
+#buckets.fullscreen .participant:first-child:nth-last-child(9) ~ .participant {
+  width: 33.33333vw;
+  height: 33.33333vh;
+}
+
+#buckets.fullscreen #leavePresentationMode {
+  display: block;
+  position: fixed;
+  right: 0.5em;
+  bottom: 0.5em;
+  z-index: 1;
+}
+
+#needName, #wrongPassword {
+  display: none;
+  color: red;
+}
+#timeoutImminent {
+  display: none;
+}
+#roomfull, #tutorial {
+  display: none;
+}
+#aboveBuckets > * {
+  margin-bottom: 1em;
+}
+#acrossTop {
+  padding: 0.25em;
+  border-bottom: 1px solid #aaa;
+}
+
+#lyricsEntry {
+  position: absolute;
+  top: 1em;
+  left: 1em;
+  border-radius: 0.5em;
+  border: 1px solid #aaa;
+  width: calc(100vw - 2em);
+  height: calc(100vh - 2em);
+  background: var(--theme-light);
+  z-index: 2;
+  display: none;
+}
+#lyricsEntryBox {
+  width: calc(100% - 2em);
+  height: calc(100% - 4em);
+  margin: 1em;
+}
+#lyricsEntryBottom {
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-end;
+  margin-right: 1em;
+}
+#lyricsTooLong {
+  color: red;
+  display: none;
+  margin-right: 1em;
+}
+#lyricsDisplay {
+  width: 100%;
+  height: 40vh;
+  display: none;
+}
+#reservePasswordInstructions {
+  display: none;
+}
+#reserveEncodedPassword {
+  font-style: italic;
+}
+#healthOuter > * {
+  width: 1em;
+  height: 0.5em;
+  margin-right: 1px;
+  display: inline-block;
+  border: 1px solid #aaa;
+}
+.healthy {
+  background-color: #0a0;
+}
+#hearMonitorDiv {
+  display: none;
+}
+#muteNotification {
+  position: fixed;
+  background: white;
+  padding: 0.5em;
+  border-radius: 0 0 0.25em 0.25em;
+  top: 0;
+  max-width: 55em;
+  left: 50%;
+  transform: translateX(-50%);
+  display: none;
+  border: 1px solid #aaa;
+  border-top: none;
+}
+#changeNameButton, #timeTravelInfo {
+  float: right;
+}
+</style>
+<link rel="stylesheet" href="local-style.css"></link>
+
+<link rel="icon"
+      type="image/png"
+      href="https://www.jefftk.com/bucket-brigade-logo.png">
+
+<script src="//media.twiliocdn.com/sdk/js/video/releases/2.8.0/twilio-video.min.js"></script>
+
+</head>
+
+<div id=uploadSpinner>
+  <div>uploading...</div>
+</div>
+
+<div id=lyricsEntry>
+<textarea id=lyricsEntryBox
+ placeholder="Paste lyrics here, then press 'OK'."></textarea>
+<div id=lyricsEntryBottom>
+<div id=lyricsTooLong>Sorry, too many lyrics</div>
+<button id=lyricsEntryOk>OK</button>
+<button id=lyricsEntryCancel>Cancel</button>
+</div>
+</div>
+
+<div id=page>
+
+<div id=topbar>
+  <div id=toplinks>
+    <div id=logoAndName>
+    <img src="https://www.jefftk.com/bucket-brigade-logo.png" width=64 height=64>
+    <h1 id=instanceName>Bucket Brigade</h1>
+    </div>
+  </div>
+
+  <div>
+    <span id=currentEvent></span>
+    <span id=currentUsers></span>
+  </div>
+</div>
+
+<div id=tabrow>
+<div id=tabbar>
+  <img id=tabbarLogo src="https://www.jefftk.com/bucket-brigade-logo.png" width=32 height=32>
+  <span class=activeTab id=mainViewTab>Home</span>
+  <span id=helpTab>Help</span>
+  <span id=aboutTab>About</span>
+  <span id=booktimeTab>Reserve</span>
+  <span id=recordingsTab>Recordings</span>
+  <span id=advancedSettingsTab>Advanced</span>
+  <span id=debugTab>Debug</span>
+</div>
+
+</div>
+
+<div id=muteNotification>
+
+There are enough people that your mic is muted for conversation.  You
+can unmute by changing "mic" to "on" in the lower left, or by holding
+the spacebar while you talk.  <button
+id=hideMuteNotification>dismiss</button> </div>
+
+<div id=advancedSettings class=middlePane>
+<div>
+<h4>Best to leave these alone, since they do affect everyone</h4>
+
+Beats per Minute: <input type=text id=bpm></input>
+(<i>Enables metronome, set to 0 to disable</i>)
+<p>
+Repeats (for rounds): <input type=text id=repeats></input>
+<p>
+Beats Per Repeat (for rounds): <input type=text id=bpr></input>
+<p>
+<button id=roundsButtonsUpdate>update</button>
+</div>
+
+<h3>Mixing Console</h3>
+
+ <div id=mixingConsole>
+ <div id=hearMonitorDiv>
+   Hear Solos Mix: <input type="checkbox" id="hearMonitor">
+ </div>
+ <button id=sortConsole>Sort</button>
+ </div>
+
+</div>
+
+<div id=debugInfo class=middlePane>
+<div>
+
+  <h3>Settings that only affect you</h3>
+
+    Disable tutorial:
+  <input type="checkbox" id="disableTutorial">
+  <p>
+    Disable latency measurement:
+    <input type="checkbox" id="disableLatencyMeasurement">
+  <p>
+    API path:
+    <input type=text id=apiPath value="/api">
+  <p>
+    Upload path:
+    <input type=text id=uploadPath value="/upload">
+  <p>
+    Loopback mode:
+    <select id=loopbackMode>
+      <option value=none selected>None (default)</option>
+      <option value=worklet>Inside worklet process()</option>
+      <option value=main>In main app thread</option>
+      <option value=server>Server-side</option>
+    </select>
+  <p>
+    Presentation mode:
+    <input type="checkbox" id="presentationMode">
+
+
+  <h3>Settings that affect everyone</h3>
+  <i>Leave these alone unless you know what you're doing</i>
+
+<p>
+
+    Disable auto gain:
+  <input type="checkbox" id="disableAutoGain">
+  <p>
+    Disable video during songs:
+  <input type="checkbox" id="disableSongVideo">
+  <br>
+    <div id=clickParams>(Clicks BPM if selected: <input type=text id=clickBPM value=60>)</div>
+    <div id=eventTest>
+    Test event contents: <input type="text" id=testEventContents>
+    Offset (optional): <input type="text" id=testEventOffset>
+    <button id=testEventGo>Fire test event</button>
+    </div>
+    <p>
+    Global Volume Control (0-2):
+    <input type=text id=globalVolumeControl>
+    <p>
+    Backing Track Volume Control (0-2):
+    <input type=text id=backingVolumeControl>
+    <p>
+
+  <h3>Debug Info</h3>
+  Sample rate:
+  <input type=text id=sampleRate value="(not available yet)" disabled>
+<br>
+  Input / output peak absolute amplitude:
+  <input type=text id=peakIn value="(not available yet)" disabled>
+  <input type=text id=peakOut value="(not available yet)" disabled>
+<br>
+  Input gain (scalar):
+  <input type=text id=inputGain value="(not available yet)" disabled>
+<br>
+  This client total time consumed (s):
+  <input type=text id=clientTotalTime value="(not available yet)" disabled>
+<br>
+  This client read slippage (s):
+  <input type=text id=clientReadSlippage value="(not available yet)" disabled>
+<br>
+  Total time to next client [more than 3 is bad] (s):
+  <input type=text id=clientTimeToNextClient value="(not available yet)" disabled>
+<br>
+  Batch size (ms):
+  <input type=text id=msBatchSize value="(not available yet)" disabled>
+<br>
+  Client Latency (ms):
+  <input type=text id=msClientLatency value="(not available yet)" disabled>
+<br>
+  Web Audio Jank (initial) (ms):
+  <input type=text id=msWebAudioJank value="(not available yet)" disabled>
+<br>
+  "True" (de-janked) Latency (ms):
+  <input type=text id=msTrueLatency value="(not available yet)" disabled>
+<br>
+  Web Audio Jank (current) (ms):
+  <input type=text id=msWebAudioJankCurrent value="(not available yet)" disabled>
+
+
+</div>
+</div>
+
+
+<div id=booktime class=middlePane>
+<div>
+<div id=booktimeDescription>
+
+If no one currently has Bucket Brigade reserved, feel free to use it.
+
+<p>
+
+If you would like to reserve Bucket Brigade, which you are welcome to
+do for whatever sort of event you would like to hold here, send a
+calendar invitation to
+<tt>gsc268k1lu78lbvfbhphdr0cs4@group.calendar.google.com</tt>. For
+example, you can add that email address as a guest for an event in
+Google Calendar.
+
+<p>
+
+By default, events are not password-protected. If
+you would like to require a password, enter one: <input
+id=reservePassword></input>.  <span
+id=reservePasswordInstructions>Include <span
+id=reserveEncodedPassword></span> in the description field of your
+calendar event.</span>  You and your guests will need to enter the password
+exactly as you typed it.
+
+<p>
+
+Let your guests know in advance they'll need:
+
+<ul>
+<li>A computer (not a phone or tablet)
+<li>Up-to-date Chrome, Firefox, Edge, or Safari
+<li>Ideally, wired headphones.  For multiple people, headphone splitters are ~$5 and work well (<a target=_blank href="https://smile.amazon.com/Belkin-Speaker-and-Headphone-Splitter/dp/B00009WQSR/">2-way</a>, <a target=_blank href="https://smile.amazon.com/AmazonBasics-5-Way-Headphone-Splitter-5-Pack/dp/B0719LFLKG/">5-way</a>).
+</ul>
+
+</div>
+
+<iframe id=calendar src="https://calendar.google.com/calendar/u/0/embed?src=gsc268k1lu78lbvfbhphdr0cs4@group.calendar.google.com"></iframe>
+</div>
+</div>
+
+<div id=recordings class=middlePane>
+<div id=recordingsGoHere></div>
+</div>
+
+<div id=about class=middlePane>
+<div style="max-width: 40em">
+ 
+<b>Bucket Brigade will be shutting down 2024-12-05</b> (<a
+href="https://www.jefftk.com/p/bucket-brigade-likely-end-of-life">more
+details</a>).
+
+<p>
+
+Bucket Brigade is an <a target="_blank" href="https://github.com/jeffkaufman/bucket-brigade">open source</a> program for making music over the Internet. <a
+target=_blank href="https://github.com/gwillen">Glenn</a>, <a
+target=_blank href="https://www.jefftk.com">Jeff</a>, and <a
+target=_blank href="https://github.com/jeffkaufman/bucket-brigade/graphs/contributors">others</a>
+develop and maintain it on a "best effort" basis.
+
+<p>
+
+It is free to use, but does cost ~<a
+target=_blank href="https://www.twilio.com/video/pricing">25&cent;/person/hour</a>
+to run.  If you end up using it much, it would be nice if you would
+send us a small amount of money to cover server expenses: <a
+target=_blank href="https://paypal.me/jefftkaufman">paypal.me/jefftkaufman</a>. We'll
+credit you on the page with our <a
+target=_blank href="https://www.jefftk.com/bucket-brigade-payments">expenses and
+contributions</a>, unless you ask to be anonymous.
+
+<p>
+
+The code is <a
+target=_blank href="https://github.com/jeffkaufman/bucket-brigade/">open
+source</a>, and if you would be interested in running your own
+instance we'd be happy to help you get set up.  It is also possible to
+use as a library, and in that form it has handled an event with <a
+target=_blank href="https://www.jefftk.com/p/secular-solstice-2020">over 200
+users</a>.
+
+<p>
+
+If you have questions or run into problems, <a
+target=_blank href="https://github.com/jeffkaufman/bucket-brigade/issues/new">file
+an issue</a> or write to <tt>bucketbrigade@googlegroups.com</tt>.
+
+</div>
+</div>
+
+<div id=help class=middlePane>
+<div style="max-width: 40em">
+
+<h3>Someone is much too quiet during songs</h3>
+
+Volume levels during songs are separate from volume levels while
+talking, so someone can be a normal volume in the video call portion
+but too quiet while singing.  This often happens if someone
+accidentally makes an uncharacteristically loud noise, or switches
+microphones.  They should refresh the page and recalibrate.
+
+<h3>Someone is consistently off the beat by the same amount.</h3>
+
+If someone is consistently a fraction of a beat early or late, their
+client side latency adjustment has gotten off. Most likely, they
+switched microphones or headphones without recalibrating.  They should
+refresh the page and recalibrate.
+
+<p>
+
+On the other hand, if someone is in consistently off the beat, sometimes
+early and sometimes late, they are probably just not singing/playing their
+best.  They could mute their mic or move to a late bucket.
+
+<p>
+
+Figuring out which of these is going on is awkward.  Please be kind to
+each other!  A good default is to recalibrate if in doubt, to quickly
+rule out a technical problem.
+
+<h3>Audio is cutting in and out</h3>
+
+Someone's network connection isn't up to the task.  They should
+probably try moving closer to the router, or even switching to a wired
+connection.  But is it your connection or someone else's?
+
+<ul>
+
+<li><p>If your "internet" meter, at the bottom of the page, isn't
+showing all six bars, it's probably yours.</li>
+
+<li><p>If the audio is fully dropping out, and there are multiple
+people you should be hearing, and then it's yours.</li>
+
+<li><p>If one of the people ahead of you is dropping out, but you can
+still hear other people when that happens, it's theirs.</li>
+
+<li><p>If you're in the second bucket, only expecting to be hearing
+one person ahead of you, it could be either you or them.  If you jump
+to a later bucket you should be able to tell the difference.</li>
+
+</ul>
+
+<h3>I keep seeing "Due to lag, your singing is not included"</h3>
+
+This happens most often if your computer is overloaded. Try closing
+other things running on your computer, including background tabs.
+
+<h3>Something else weird is going on</h3>
+
+If you'd like Jeff to drop into your call and have a look, you're
+welcome to text 617-871-0237 between 8am and 10pm.  This is best
+effort; I'll come if I'm not busy.
+
+<p>
+
+Alternatively, fill out the form <a
+target=_blank href="https://github.com/jeffkaufman/bucket-brigade/issues/new">on
+github</a>.  Please give as much information as you can, so I can try
+and trigger your problem and figure out why it wasn't doing what it
+should.
+
+</div>
+</div>
+
+<div id=noAudioWorklet  class=middlePane>
+  <div>
+
+  <p>
+  It looks like your browser is too old.  Try using the most
+  recent version of Chrome, Firefox, Edge, or Safari.
+  </p>
+
+  <p>
+  While we don't recommend trying to continue anyway, because it will
+  probably fail silently and just be frustrating for you, if you want
+  you can continue:
+
+    <button id=dismissNoAudioWorklet>dismiss</button>
+  </div>
+</div>
+
+<div id=isMobile class=middlePane>
+  <div>
+
+  <p>
+  It looks like you are on a mobile browser. This is not recommended:
+  we haven't found any mobile devices that are able to keep up with
+  the strain of encoding and decoding audio in JavaScript.
+  </p>
+
+  <p>
+
+  While we don't recommend trying to continue anyway, because it will
+  probably fail silently and just be frustrating for you, if you want
+  you can continue:
+
+    <button id=dismissIsMobile>dismiss</button>
+  </div>
+</div>
+<div id=middle class=middlePane>
+
+<div id="roomfull">
+  We're sorry, the room is currently full.  Please try again later!
+</div>
+
+<div id=tutorial>
+  <div id=tutorial_questions>
+  
+    <b>Bucket Brigade will be shutting down 2024-12-05</b> (<a
+    href="https://www.jefftk.com/p/bucket-brigade-likely-end-of-life">more
+    details</a>).
+
+    <p>
+
+    Welcome!  This is a program for singing with people over the
+    Internet. <span id=eventWelcome></span>
+
+    <p>
+    <br>
+
+    Before we start, a few questions:
+
+    <p>
+
+    <div id=q_name>
+      What's your name? <input id=userName></input>
+      <button>Enter</button>
+      <div id=needName>* we need to know what to call you</div>
+    </div>
+
+    <div id=q_password>
+      What's the password for this event? <input id=enteredPassword></input>
+      <button>Enter</button>
+      <div id=wrongPassword>* that is not the password.  If you were invited,
+           please check in with the organizer.</div>
+    </div>
+
+    <div id=q_singing_listening>
+      Are you planning on singing or just listening?
+      <button>Singing and Listening</button>
+      <button>Only Listening</button>
+    </div>
+    <div id=q_headphones_present>
+      Are you using headphones?
+      <button>Yes</button>
+      <button>No</button>
+    </div>
+
+    <div id=q_wired_headphones_available>
+      Do you have wired headphones that you could easily use?
+      <button>Yes</button>
+      <button>No</button>
+    </div>
+
+    <div id=q_headphones_wired>
+      Are your headphones wired?
+      <button>Yes</button>
+      <button>No</button>
+    </div>
+  </div>
+
+  <div id=final_attach_wired>
+    Great! Please attach them and then refresh this page.
+  </div>
+
+  <div id=final_no_headphones>
+    That's OK! Using headphones helps reduce noise, but it still works OK
+    if a few people aren't wearing headphones.
+    <button class=dismiss_tutorial>Get Started</button>
+  </div>
+
+  <div id=final_detach_wireless>
+    Wireless headphones have large and inconsistent latency.  Please
+    detach them and refresh this page.
+  </div>
+
+  <div id=final_wired_headphones>
+    Wired headphones are ideal!
+    <p>
+    <button class=dismiss_tutorial>Get Started</button>
+  </div>
+</div>
+
+<div id=chooseCamera>
+Last step!  We just need to sort out cameras.
+
+<div id=noCameraFound>No camera found</div>
+<p>
+<button id=nextCamera>Switch camera</button>
+<button id=chosenCamera>Use this camera</button>
+<button id=noCamera>Continue without camera</button>
+<p>
+<div id=cameraPreview><span>loading...</span></div>
+</div>
+
+<div id=mainApp>
+
+<div id=noInputsAvailable class=warning>
+No microphones found.  Possibly you do have a microphone, but the
+browser is not allowing access for privacy reasons?
+</div>
+
+
+<div id=inputSelector>
+Input device:
+  <select id=inSelect disabled=true>
+    <option>Loading...</option>
+  </select>
+</div>
+
+<div id=latencyCalibrationInstructions>
+
+<p>
+
+In the next step we are going to need to make some really loud beeps to
+calibrate latency.
+
+  <p>
+
+Please turn your volume all the way up.
+<span class=headphoneAdvice>
+Take your headphones off your head, and position the earpieces as
+close as possible to your mic.  On a mac laptop this is near the "esc"
+key.</span>  Press "start" when ready.
+
+</div>
+
+<div id=rememberedCalibrationInstructions>
+<p>
+
+If you've changed something about your audio setup since your last
+visit, press "recalibrate".  Otherwise press "start" to begin.
+
+<p>
+
+<button id=recalibrate>Recalibrate</button>
+
+</div>
+
+<button id=startButton></button>
+
+<div id=calibration>
+
+<div id=autoCalibrate1>
+  You should be hearing some beeps.
+
+  <ul>
+    <li>If you don't hear anything, is your speaker unmuted?
+    <li>If you do hear beeps but <tt>#beeps detected</tt> is not counting up,
+      turn up the volume.
+    <li>If the beeps are very loud but it's still not counting up,
+      try refreshing the page and changing your input device.
+    <li>Other things to try:
+    <ul>
+      <li>Restarting your browser.
+      <li>Restarting your computer.
+      <li>Switching to another browser (Chrome, Firefox, Edge, or Safari)
+      <li>Refreshing the page and choosing "Only Listening" to skip calibration.
+    </ul>
+  </ul>
+</div>
+
+<div id=noAudioInputInstructions class=warning>
+Mic producing any audio. Is your input device set correctly?
+</div>
+
+
+<p>
+
+  <div id=estQuality>
+    <center>
+  <div id=latencyCalibrationFailed>
+
+Unable to calibrate latency. Please make sure that the microphone is
+able to hear the speaker.
+<br>
+<br>
+<button id=latencyCalibrationRetry>Retry</button>
+<button id=latencyCalibrationGiveUp>Continue Without Calibration</button>
+<br>
+<br>
+
+It's fine to continue without calibration if you just to sing along,
+but your audio can't be sent out for everyone else to hear unless we
+know exactly how much client-side latency you have.
+
+  </div>
+
+    <span id=estSamples>...</span><br>
+    #beeps detected
+
+    <span id=estLatency>...</span><br>
+    latency<br>
+    <br>
+
+    <span id=est25to75>...</span><br>
+    variance
+    </center>
+  </div>
+
+
+
+<p>
+
+Click volume: <input id=clickVolumeSlider type=range min=0 max=100
+value=100>
+
+</div>
+
+</div>
+
+<div id=volumeCalibration>
+  Your latency is now calibrated!  If it any point you change
+  something about your audio setup, such as switching to a different
+  microphone, please refresh the page and recalibrate.
+
+  <p>
+
+  Now we need to calibrate your volume. This will only apply to music
+  making; the video call portion automatically adjusts to your current
+  volume. You probably want to turn your speaker volume back down.
+  Pick something you're comfortable singing, start singing, and then
+  click <button
+  id=startVolumeCalibration>I've begun singing</button>.
+
+  <p>
+
+  <div id=reportVolume>
+    Volume: <span id=reportedVolume>...</span>
+  </div>
+
+</div>
+<div id=mainInterface>
+
+<div id=acrossTop>
+  <div class=warning id=lostConnectivity>
+    Lost connectivity to the server. Trying to reconnect&hellip;
+  </div>
+
+  <div class=warning id=timeoutImminent>
+    Are you still here? If so, move the mouse or something.
+  </div>
+
+  <div class=note id=advancedSettingsOn>
+    The metronome is set to <span id=metronomeValue></span>.
+    <span id=roundsOn>Rounds are configured, with <span id=repeatsValue></span> repeats of <span id=bprValue></span> beats each.</span>
+    To disable, set to zero on the Advanced Settings tab.
+  </div>
+
+  <div>
+    <button id=takeLead>Lead a Song</button>
+    <button id=provideLyrics>Provide Lyrics</button>
+    <button id=uploadImage>Upload Image</button>
+    <input type=file id=imageUploader accept=".png,.jpg,.jpeg"></input>
+    <span id=imageUploadOk>Image Uploaded.</span>
+    <span id=imageUploadError class=warning>Image Upload Failed.</span>
+    <button id=uploadBackingTrack>Upload Backing Track</button>
+    <input type=file id=backingTrackUploader accept=".mp3"></input>
+    <span id=backingTrackUploadOk>Track Uploaded.</span>
+    <span id=backingTrackUploadError class=warning>Track Upload Failed.</span>
+    <select id=backingTrack></select>
+    <div id=runningStatus></div>
+  </div>
+
+  <div id=lagmute>
+    <span>Due to lag, your singing is not included</span>
+    <button id=unlagmute>Try Again</button>
+  </div>
+</div>
+
+<div id=bucketsAndChat>
+
+<div id=remainderWindow>
+
+<div id=aboveBuckets>
+  <div id=bucketingGuide>
+
+    Each person is in a bucket. You can hear the people in earlier
+    buckets, and you can be heard by the people in later buckets. You
+    can't hear other people in your own bucket.  You can move between
+    buckets by pressing the "join" button in the upper right.
+
+    <p>
+
+    If you are a strong singer or know the song well you might choose
+    an earlier bucket, while if you are less confident you might
+    choose a later one.  Similarly, if you are in a noisy environment
+    or are not wearing headphones, you might also choose a later one.
+
+  </div>
+
+  <textarea id=lyricsDisplay readonly>
+  Lyrics Go Here
+  </textarea>
+
+  <div id=imageDisplay>
+    <img id=imageDisplayImg>
+  </div>
+</div>
+
+<div id=buckets>
+  <button id=leavePresentationMode>x</button>
+</div>
+
+<div id=unbucketedUsers></div>
+
+</div> <!-- remainderWindow -->
+
+<div id=chatWindow>
+  <div id=chatDisplay></div>
+  <form id=chatForm><input type="text" id=chatEntry></input><input type="submit" id=chatPost value="Post"></input></form>
+</div>
+
+</div> <!-- bucketsAndChat -->
+
+</div>
+</div>
+
+<div id=controlbar>
+  <div class=buttonGroup>
+  mic:
+    <div>
+    <button disabled id=micOffButton>off</button>
+    <button disabled id=micOnForMusicButton title="Muted in video call, unmuted during songs.
+Holding spacebar will unmute until released.">on for songs</button>
+    <button disabled id=micOnButton>on</button>
+    </div>
+  </div>
+
+  <div>
+    <button disabled id=speakerToggleButton>mute speaker</button>
+    <button disabled id=videoToggleButton>...</button>
+    <div id=spectatorMode>As a spectator, your singing is not included</div>
+  </div>
+
+  <div id=backingSliderDiv>
+  <label for=backingVolumeSlider><span id=backingTrackTypeName></span> Volume:</label>
+  <input type="range" min="0" max="160" value="100" id="backingVolumeSlider">
+  </div>
+
+  <div>
+    <input id=changeName></input><br>
+    <button id=changeNameButton>Update</button>
+  </div>
+
+  <div>
+    Internet:
+    <div>
+    <span id=healthOuter>
+    <div id=health1></div><div id=health2></div><div id=health3></div><div id=health4></div><div id=health5></div><div id=health6></div>
+    </span>
+    </div>
+  </div>
+
+  <!-- DELAY_INTERVAL * LAYERING_DEPTH -->
+  <div>Time Travel:
+    <div id=timeTravelInfo><input type=text id=audioOffset value="18">s</div></div>
+</div>
+
+</div>
+
+</div>
+
+<div id="crash">
+  <h1 id="crashMessage">This app has crashed. We're really sorry :-(</h1>
+  <div id="crashBug">
+    <h2>Please <a href="https://github.com/jeffkaufman/bucket-brigade/issues/new">file a bug</a> with the following information; it will help us fix it.</h2>
+    <textarea id="crashTrace" rows="50" cols="160" readonly></textarea>
+    <h2>Then refresh the page and try again.</h2>
+  </div>
+</div>
+
+<script>
+  let showingWarningPane = true;
+
+  if (window.AudioWorklet) {
+    window.noAudioWorklet.style.display = "none";
+    window.middle.style.display = "block";
+
+    // We only need to check for Android, because no other mobile
+    // device supports audio worklet.
+    if (navigator.userAgent.match(/Android/i)) {
+      window.isMobile.style.display = "block";
+      window.middle.style.display = "none";
+    } else {
+      showingWarningPane = false;
+    }
+  }
+
+
+  const middlePanes = {
+    "Main": window.middle,
+    "Debug": window.debugInfo,
+    "Reserve": window.booktime,
+    "About": window.about,
+    "Help": window.help,
+    "Recordings": window.recordings,
+    "Advanced": window.advancedSettings,
+    "UnsupportedBrowser": window.noAudioWorklet,
+    "UnsupportedDevice": window.isMobile,
+  };
+
+  const tabs = {
+    "Main": window.mainViewTab,
+    "Debug": window.debugTab,
+    "Reserve": window.booktimeTab,
+    "About": window.aboutTab,
+    "Help": window.helpTab,
+    "Advanced": window.advancedSettingsTab,
+    "Recordings": window.recordingsTab,
+  };
+
+  for (const [paneName, paneTab] of Object.entries(tabs)) {
+    paneTab.addEventListener("click", () => {
+      showPane(paneName);
+    });
+  }
+
+  for (dismiss of [window.dismissNoAudioWorklet, window.dismissIsMobile]) {
+    dismiss.addEventListener(
+      "click", () => {
+        showPane("Main");
+      });
+  }
+
+  async function updateRecordings() {
+    window.recordingsGoHere.innerHTML = "loading...";
+    const response = await fetch("recordings/");
+    const html = await response.text();
+    window.recordingsGoHere.innerHTML =
+       html.replace(/href='/g, "target=_blank href='recordings/");
+  }
+
+  function showPane(paneName) {
+    for (const [otherPaneName, otherPaneDiv] of Object.entries(middlePanes)) {
+      otherPaneDiv.style.display = "none";
+    }
+    for (const [otherPanelName, otherPanelTab] of Object.entries(tabs)) {
+      otherPanelTab.classList.remove("activeTab");
+    }
+    middlePanes[paneName].style.display = "block";
+    if (tabs[paneName]) {
+      tabs[paneName].classList.add("activeTab");
+    }
+    window.location.hash = (paneName === "Main" ? "" : paneName);
+
+    if (paneName == "Recordings") {
+      updateRecordings();
+    }
+  }
+
+  if (window.location.hash && !showingWarningPane) {
+    const paneName = window.location.hash.substring(1);
+    if (paneName in tabs && paneName != "Debug" && paneName != "Advanced") {
+      showPane(paneName);
+    } else {
+      window.location.hash = "";
+    }
+  }
+</script>
+
+<script type="module" src="./demo.js"></script>
+
+<script>
+window.setTimeout(function() {
+  if (window.singer_client === undefined) {
+    showPane("UnsupportedBrowser");
+  }
+}, 2000);
+window.singer_client
+</script>
+
+</html>
