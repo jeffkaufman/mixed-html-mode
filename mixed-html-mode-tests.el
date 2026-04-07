@@ -7,14 +7,6 @@
 
 (require 'ert)
 
-(defun test-face-at (text pos)
-  "Fontify TEXT in mixed-html-mode and return the face at POS."
-  (with-temp-buffer
-    (insert text)
-    (mixed-html-mode)
-    (font-lock-ensure)
-    (get-text-property pos 'face)))
-
 (defun test-face-at-search (text search-string &optional occurrence)
   "Fontify TEXT, search for SEARCH-STRING, return face at start of match.
 OCCURRENCE defaults to 1 (first match)."
@@ -442,5 +434,87 @@ var x = 1;
     (search-forward "var")
     (should (eq (get-text-property (match-beginning 0) 'face)
                 'mixed-html-keyword-face))))
+
+;;; Regex character class tests
+
+(ert-deftest mhm-test-js-regex-char-class ()
+  "A regex with a character class should not skip the character after ]."
+  (let ((text "<script>var re = /[abc]def/g;</script>"))
+    (should (eq (test-face-at-search text "/[abc]def/")
+                'mixed-html-string-face))))
+
+(ert-deftest mhm-test-js-regex-char-class-with-escape ()
+  "A regex with an escaped ] inside a character class."
+  (let ((text "<script>var re = /[a\\]b]c/g;</script>"))
+    (should (eq (test-face-at-search text "/[a\\]b]c/")
+                'mixed-html-string-face))))
+
+;;; Edge case / robustness tests
+
+(ert-deftest mhm-test-unclosed-script-tag ()
+  "Unclosed <script> should not cause an error."
+  (with-temp-buffer
+    (insert "<html><script>var x = 1;\nvar y = 2;")
+    (mixed-html-mode)
+    (font-lock-ensure)
+    ;; Should not error; var should be a keyword
+    (goto-char (point-min))
+    (search-forward "var")
+    (should (eq (get-text-property (match-beginning 0) 'face)
+                'mixed-html-keyword-face))))
+
+(ert-deftest mhm-test-unclosed-js-string ()
+  "Unclosed JS string should not cause an error or infinite loop."
+  (with-temp-buffer
+    (insert "<script>var x = \"hello;\nvar y = 1;</script>")
+    (mixed-html-mode)
+    (font-lock-ensure)
+    ;; Should complete without error
+    (should t)))
+
+(ert-deftest mhm-test-unclosed-js-block-comment ()
+  "Unclosed JS block comment should not cause an error."
+  (with-temp-buffer
+    (insert "<script>/* unclosed comment\nvar x = 1;</script>")
+    (mixed-html-mode)
+    (font-lock-ensure)
+    ;; Everything after /* should be comment face
+    (goto-char (point-min))
+    (search-forward "var")
+    (should (eq (get-text-property (match-beginning 0) 'face)
+                'mixed-html-comment-face))))
+
+(ert-deftest mhm-test-nested-template-literals ()
+  "Nested template literals should not cause errors."
+  (with-temp-buffer
+    (insert "<script>var x = `a ${`b`} c`;</script>")
+    (mixed-html-mode)
+    (font-lock-ensure)
+    ;; The outer template text should be string
+    (goto-char (point-min))
+    (search-forward "a ")
+    (should (eq (get-text-property (match-beginning 0) 'face)
+                'mixed-html-string-face))))
+
+(ert-deftest mhm-test-js-hex-number ()
+  "Hex numbers should be fully highlighted as constants."
+  (should (eq (test-face-at-search "<script>var x = 0xFF;</script>" "0xFF")
+              'mixed-html-constant-face)))
+
+(ert-deftest mhm-test-js-number-not-greedy ()
+  "Number parser should not consume non-numeric identifier chars."
+  ;; After a number, a following identifier should not be consumed
+  (should (eq (test-face-at-search "<script>var x = 1;var abc = 2;</script>" "abc")
+              nil)))
+
+(ert-deftest mhm-test-css-brace-context-bounded ()
+  "CSS brace context should not look past region boundaries into JS."
+  (let ((text "<script>function f() { var x = 1; }</script><style>body { color: red; }</style>"))
+    ;; color should be a property (inside braces), not confused by JS braces
+    (should (eq (test-face-at-search text "color")
+                'mixed-html-css-property-face))
+    ;; body should be a selector (outside braces)
+    (should (eq (test-face-at-search text "body")
+                'mixed-html-css-selector-face))))
 
 ;;; mixed-html-mode-tests.el ends here

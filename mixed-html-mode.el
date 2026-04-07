@@ -146,7 +146,7 @@ with no gaps."
 
 ;;; Fontification engine
 
-(defun mixed-html--fontify-js-string (start end quote-char)
+(defun mixed-html--fontify-string (start end quote-char)
   "Fontify a JS string from START to END delimited by QUOTE-CHAR.
 START should be on the opening quote character itself.
 Handles escape sequences.  Returns the position after the closing quote,
@@ -240,22 +240,22 @@ START is on the opening /.  Returns position after the closing / and flags."
     (while (and (< pos limit)
                 (not (eq (char-after pos) ?/))
                 (not (eq (char-after pos) ?\n)))
-      (if (eq (char-after pos) ?\\)
-          (setq pos (min (+ pos 2) limit))
-        (when (eq (char-after pos) ?\[)
-          ;; Skip character class
-          (setq pos (1+ pos))
-          (while (and (< pos limit)
-                      (not (eq (char-after pos) ?\]))
-                      (not (eq (char-after pos) ?\n)))
-            (if (eq (char-after pos) ?\\)
-                (setq pos (min (+ pos 2) limit))
-              (setq pos (1+ pos))))
-          (when (and (< pos limit) (eq (char-after pos) ?\]))
+      (cond
+       ((eq (char-after pos) ?\\)
+        (setq pos (min (+ pos 2) limit)))
+       ((eq (char-after pos) ?\[)
+        ;; Skip character class
+        (setq pos (1+ pos))
+        (while (and (< pos limit)
+                    (not (eq (char-after pos) ?\]))
+                    (not (eq (char-after pos) ?\n)))
+          (if (eq (char-after pos) ?\\)
+              (setq pos (min (+ pos 2) limit))
             (setq pos (1+ pos))))
-        (unless (or (eq (char-after pos) ?\[)
-                    (>= pos limit))
-          (setq pos (1+ pos)))))
+        (when (and (< pos limit) (eq (char-after pos) ?\]))
+          (setq pos (1+ pos))))
+       (t
+        (setq pos (1+ pos)))))
     (when (and (< pos limit) (eq (char-after pos) ?/))
       (setq pos (1+ pos))
       ;; Skip flags
@@ -306,7 +306,7 @@ operators, keywords, `(', `[', `{', `,', `;', `!', or at start of code."
     (mixed-html--fontify-js-template pos end))
    ;; String
    ((and (< pos end) (memq (char-after pos) '(?\" ?\')))
-    (mixed-html--fontify-js-string pos end (char-after pos)))
+    (mixed-html--fontify-string pos end (char-after pos)))
    ;; Identifier or keyword
    ((and (< pos end)
          (let ((c (char-after pos)))
@@ -334,14 +334,22 @@ operators, keywords, `(', `[', `{', `,', `;', `!', or at start of code."
    ((and (< pos end)
          (let ((c (char-after pos)))
            (and (>= c ?0) (<= c ?9))))
-    (let ((num-start pos))
+    (let ((num-start pos)
+          (is-hex nil))
+      ;; Check for 0x/0X hex prefix
+      (when (and (eq (char-after pos) ?0)
+                 (< (1+ pos) end)
+                 (let ((c2 (char-after (1+ pos))))
+                   (or (eq c2 ?x) (eq c2 ?X))))
+        (setq is-hex t)
+        (setq pos (+ pos 2)))
       (while (and (< pos end)
                   (let ((c (char-after pos)))
                     (or (and (>= c ?0) (<= c ?9))
-                        (eq c ?.) (eq c ?x) (eq c ?X)
-                        (eq c ?e) (eq c ?E)
-                        (and (>= c ?a) (<= c ?f))
-                        (and (>= c ?A) (<= c ?F)))))
+                        (and is-hex (>= c ?a) (<= c ?f))
+                        (and is-hex (>= c ?A) (<= c ?F))
+                        (and (not is-hex) (eq c ?.))
+                        (and (not is-hex) (or (eq c ?e) (eq c ?E))))))
         (setq pos (1+ pos)))
       (put-text-property num-start pos 'face 'mixed-html-constant-face)
       pos))
@@ -366,10 +374,11 @@ operators, keywords, `(', `[', `{', `,', `;', `!', or at start of code."
   "Fontify CSS between START and END."
   (let ((pos start))
     (while (< pos end)
-      (setq pos (mixed-html--fontify-css-token pos end)))))
+      (setq pos (mixed-html--fontify-css-token pos end start)))))
 
-(defun mixed-html--fontify-css-token (pos end)
-  "Fontify one CSS token at POS, up to END.  Return new position."
+(defun mixed-html--fontify-css-token (pos end &optional region-start)
+  "Fontify one CSS token at POS, up to END.  Return new position.
+REGION-START bounds backward searches for brace context."
   (cond
    ;; Whitespace
    ((and (< pos end)
@@ -382,7 +391,7 @@ operators, keywords, `(', `[', `{', `,', `;', `!', or at start of code."
     (mixed-html--fontify-block-comment pos end))
    ;; String
    ((and (< pos end) (memq (char-after pos) '(?\" ?\')))
-    (mixed-html--fontify-js-string pos end (char-after pos)))
+    (mixed-html--fontify-string pos end (char-after pos)))
    ;; At-rule
    ((and (< pos end) (eq (char-after pos) ?@))
     (let ((at-start pos))
@@ -405,19 +414,20 @@ operators, keywords, `(', `[', `{', `,', `;', `!', or at start of code."
                (eq c ?.) (eq c ?#)
                (eq c ?:) (eq c ?*)
                (eq c ?\[))))
-    (mixed-html--fontify-css-selector-or-property pos end))
+    (mixed-html--fontify-css-selector-or-property pos end region-start))
    ;; Open/close braces, semicolons, etc.
    ((< pos end) (1+ pos))
    (t pos)))
 
-(defun mixed-html--css-in-rule-block-p (pos)
-  "Return non-nil if POS is inside a CSS rule block (between { and })."
+(defun mixed-html--css-in-rule-block-p (pos &optional bound)
+  "Return non-nil if POS is inside a CSS rule block (between { and }).
+BOUND, if non-nil, limits how far back the search goes."
   (let ((depth 0)
         (found nil))
     (save-excursion
       (goto-char pos)
       (while (and (not found)
-                  (re-search-backward "[{}]" nil t))
+                  (re-search-backward "[{}]" bound t))
         (cond
          ((eq (char-after) ?}) (setq depth (1+ depth)))
          ((eq (char-after) ?{)
@@ -426,9 +436,10 @@ operators, keywords, `(', `[', `{', `,', `;', `!', or at start of code."
             (setq found t))))))
     found))
 
-(defun mixed-html--fontify-css-selector-or-property (pos end)
-  "Fontify a CSS selector or property starting at POS up to END."
-  (if (mixed-html--css-in-rule-block-p pos)
+(defun mixed-html--fontify-css-selector-or-property (pos end &optional region-start)
+  "Fontify a CSS selector or property starting at POS up to END.
+REGION-START bounds backward searches for brace context."
+  (if (mixed-html--css-in-rule-block-p pos region-start)
       ;; Inside a rule block: this is a property name
       (let ((prop-start pos))
         (while (and (< pos end)
@@ -452,7 +463,7 @@ operators, keywords, `(', `[', `{', `,', `;', `!', or at start of code."
               (cond
                ;; Handle strings in values
                ((memq (char-after pos) '(?\" ?\'))
-                (setq pos (mixed-html--fontify-js-string pos end (char-after pos))))
+                (setq pos (mixed-html--fontify-string pos end (char-after pos))))
                ;; Handle comments in values
                ((and (< (1+ pos) end)
                      (eq (char-after pos) ?/)
@@ -643,7 +654,7 @@ operators, keywords, `(', `[', `{', `,', `;', `!', or at start of code."
 Returns the actual bounds fontified as (ACTUAL-START . ACTUAL-END),
 which may be wider than requested since we must always fontify from
 the beginning of each region to maintain correct parser state."
-  (let ((regions (mixed-html--find-regions))
+  (let ((regions (or mixed-html--last-regions (mixed-html--find-regions)))
         (actual-start start)
         (actual-end end))
     (dolist (region regions)
@@ -694,14 +705,12 @@ Fontifies from START to END."
   "After-change function that triggers refontification when regions change.
 Any edit that could affect region boundaries (e.g. changing <style> to
 <script>) needs to refontify all affected content, not just the changed line."
-  (let ((new-regions (mixed-html--find-regions)))
-    (if (equal new-regions mixed-html--last-regions)
-        ;; Regions unchanged — jit-lock's default line-level
-        ;; refontification is sufficient
-        nil
+  (let ((old-regions mixed-html--last-regions)
+        (new-regions (mixed-html--find-regions)))
+    (setq mixed-html--last-regions new-regions)
+    (unless (equal new-regions old-regions)
       ;; Regions changed — refontify from the change point to end of buffer
       ;; since everything after the edit could have shifted region type
-      (setq mixed-html--last-regions new-regions)
       (jit-lock-refontify beg (point-max)))))
 
 ;;; Mode definition
