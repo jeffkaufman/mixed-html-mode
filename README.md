@@ -6,7 +6,8 @@ dependencies beyond Emacs 27+.
 This is a relatively minimal syntax highlighter for HTML, with two key
 advantages:
 
-1. It is performant even on very large files.
+1. It is performant even on very large files: highlighting may be delayed,
+   but user input should never stall.
 
 2. It handles inline CSS and JS without getting confused about what
    state it's in.

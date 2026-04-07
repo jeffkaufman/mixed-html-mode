@@ -652,33 +652,54 @@ REGION-START bounds backward searches for brace context."
 (defvar-local mixed-html--last-regions nil
   "Cached region list from the last fontification pass.")
 
+(defvar-local mixed-html--region-timer nil
+  "Idle timer for deferred region recomputation.")
+
+(defvar-local mixed-html--regions-dirty nil
+  "Non-nil when regions need recomputation.")
+
 ;;; Main fontification function
 
 (defun mixed-html-fontify (start end)
   "Fontify the region between START and END.
 Returns the actual bounds fontified as (ACTUAL-START . ACTUAL-END),
 which may be wider than requested since we must always fontify from
-the beginning of each region to maintain correct parser state."
-  (let ((regions (or mixed-html--last-regions (mixed-html--find-regions)))
-        (actual-start start)
-        (actual-end end))
-    (dolist (region regions)
-      (let ((type (nth 0 region))
-            (rstart (nth 1 region))
-            (rend (nth 2 region)))
-        ;; Only fontify regions that overlap [start, end]
-        (when (and (< rstart end) (> rend start))
-          ;; Always start from the beginning of the region so the
-          ;; parser has correct state (e.g. knows whether we're inside
-          ;; a string or comment).  Clip the end to the requested range.
-          (let ((fstart rstart)
-                (fend (min rend end)))
-            (setq actual-start (min actual-start fstart))
-            (cond
-             ((eq type 'html) (mixed-html--fontify-html-region fstart fend))
-             ((eq type 'css) (mixed-html--fontify-css-region fstart fend))
-             ((eq type 'js) (mixed-html--fontify-js-region fstart fend)))))))
-    (cons actual-start actual-end)))
+the beginning of each region to maintain correct parser state.
+Aborts early if user input arrives, letting jit-lock retry later."
+  ;; In batch mode (tests), recompute stale regions synchronously so
+  ;; font-lock-ensure gets correct results.  In interactive mode, use
+  ;; stale regions — the idle timer will fix them and trigger
+  ;; refontification, avoiding any synchronous full-buffer scan.
+  (when (and mixed-html--regions-dirty noninteractive)
+    (mixed-html--recompute-regions))
+  (let ((result (while-no-input
+                  (let ((regions (or mixed-html--last-regions
+                                    (mixed-html--find-regions)))
+                        (actual-start start)
+                        (actual-end end))
+                    (dolist (region regions)
+                      (let ((type (nth 0 region))
+                            (rstart (nth 1 region))
+                            (rend (nth 2 region)))
+                        ;; Only fontify regions that overlap [start, end]
+                        (when (and (< rstart end) (> rend start))
+                          ;; Always start from the beginning of the region so
+                          ;; the parser has correct state (e.g. knows whether
+                          ;; we're inside a string or comment).  Clip the end
+                          ;; to the requested range.
+                          (let ((fstart rstart)
+                                (fend (min rend end)))
+                            (setq actual-start (min actual-start fstart))
+                            (cond
+                             ((eq type 'html) (mixed-html--fontify-html-region fstart fend))
+                             ((eq type 'css) (mixed-html--fontify-css-region fstart fend))
+                             ((eq type 'js) (mixed-html--fontify-js-region fstart fend)))))))
+                    (cons actual-start actual-end)))))
+    ;; while-no-input returns t if interrupted
+    (if (and result (not (eq result t)))
+        result
+      ;; Interrupted -- return original bounds so jit-lock retries
+      (cons start end))))
 
 (defun mixed-html-fontify-region (start end &optional _loudly)
   "Fontify function for `font-lock-fontify-region-function'.
@@ -701,17 +722,39 @@ Fontifies from START to END."
     table)
   "Syntax table for `mixed-html-mode'.")
 
-(defun mixed-html--after-change (beg _end _old-len)
-  "After-change function that triggers refontification when regions change.
-Any edit that could affect region boundaries (e.g. changing <style> to
-<script>) needs to refontify all affected content, not just the changed line."
-  (let ((old-regions mixed-html--last-regions)
-        (new-regions (mixed-html--find-regions)))
-    (setq mixed-html--last-regions new-regions)
-    (unless (equal new-regions old-regions)
-      ;; Regions changed — refontify from the change point to end of buffer
-      ;; since everything after the edit could have shifted region type
-      (jit-lock-refontify beg (point-max)))))
+(defun mixed-html--recompute-regions ()
+  "Recompute regions on idle.  Called from a timer or before fontification."
+  (when mixed-html--regions-dirty
+    (setq mixed-html--regions-dirty nil)
+    (let ((old-regions mixed-html--last-regions)
+          (new-regions (mixed-html--find-regions)))
+      (setq mixed-html--last-regions new-regions)
+      (unless (equal new-regions old-regions)
+        ;; Regions changed — mark whole buffer for refontification.
+        ;; jit-lock will pick up visible parts on next redisplay.
+        (jit-lock-refontify (point-min) (point-max))))))
+
+(defun mixed-html--after-change (_beg _end _old-len)
+  "After-change function: schedule deferred region recomputation.
+Does not scan the buffer synchronously — instead sets a dirty flag
+and schedules an idle timer to recompute regions."
+  (setq mixed-html--regions-dirty t)
+  (when mixed-html--region-timer
+    (cancel-timer mixed-html--region-timer))
+  (let ((buf (current-buffer)))
+    (setq mixed-html--region-timer
+          (run-with-idle-timer
+           0.3 nil
+           (lambda ()
+             (when (buffer-live-p buf)
+               (with-current-buffer buf
+                 (mixed-html--recompute-regions))))))))
+
+(defun mixed-html--cleanup ()
+  "Cancel pending timers when buffer is killed."
+  (when mixed-html--region-timer
+    (cancel-timer mixed-html--region-timer)
+    (setq mixed-html--region-timer nil)))
 
 ;;; Mode definition
 
@@ -741,9 +784,17 @@ Region boundaries are detected the way a browser would: a literal
   ;; Use jit-lock for lazy fontification
   (jit-lock-mode t)
   (jit-lock-register #'mixed-html-fontify)
+  ;; Defer fontification so it runs from a timer, not during redisplay.
+  ;; This ensures while-no-input can actually interrupt it on keypress.
+  (setq-local jit-lock-defer-time 0.05)
+  ;; Enable stealth (background) fontification of non-visible regions
+  (setq-local jit-lock-stealth-time 1)
+  (setq-local jit-lock-stealth-nice 0.1)
+  (setq-local jit-lock-chunk-size 1000)
   ;; Track changes that affect region boundaries
   (setq mixed-html--last-regions (mixed-html--find-regions))
-  (add-hook 'after-change-functions #'mixed-html--after-change nil t))
+  (add-hook 'after-change-functions #'mixed-html--after-change nil t)
+  (add-hook 'kill-buffer-hook #'mixed-html--cleanup nil t))
 
 ;;;###autoload
 (add-to-list 'auto-mode-alist '("\\.html?\\'" . mixed-html-mode))
