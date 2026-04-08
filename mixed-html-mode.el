@@ -364,6 +364,7 @@ operators, keywords, `(', `[', `{', `,', `;', `!', or at start of code."
 
 (defun mixed-html--fontify-js-region (start end)
   "Fontify JavaScript between START and END."
+  (remove-text-properties start end '(face nil))
   (let ((pos start))
     (while (< pos end)
       (setq pos (mixed-html--fontify-js-token pos end)))))
@@ -372,6 +373,7 @@ operators, keywords, `(', `[', `{', `,', `;', `!', or at start of code."
 
 (defun mixed-html--fontify-css-region (start end)
   "Fontify CSS between START and END."
+  (remove-text-properties start end '(face nil))
   (let ((pos start))
     (while (< pos end)
       (setq pos (mixed-html--fontify-css-token pos end start)))))
@@ -517,6 +519,7 @@ REGION-START bounds backward searches for brace context."
 
 (defun mixed-html--fontify-html-region (start end)
   "Fontify HTML between START and END."
+  (remove-text-properties start end '(face nil))
   (let ((pos start))
     (while (< pos end)
       (cond
@@ -673,11 +676,6 @@ Aborts early if user input arrives, letting jit-lock retry later."
   (when (and mixed-html--regions-dirty noninteractive)
     (mixed-html--recompute-regions))
   (let ((result (while-no-input
-                  ;; Clear stale faces before re-fontifying, so that
-                  ;; characters which were highlighted during a partial
-                  ;; parse (e.g. inside an incomplete tag) revert to
-                  ;; default when the parse result changes.
-                  (remove-text-properties start end '(face nil))
                   (let ((regions (or mixed-html--last-regions
                                     (mixed-html--find-regions)))
                         (actual-start start)
