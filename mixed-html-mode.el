@@ -287,10 +287,14 @@ operators, keywords, `(', `[', `{', `,', `;', `!', or at start of code."
 (defun mixed-html--fontify-js-token (pos end)
   "Fontify one JS token at POS, up to END.  Return new position."
   (cond
-   ;; Whitespace
+   ;; Whitespace — clear stale faces
    ((and (< pos end)
          (memq (char-after pos) '(?\s ?\t ?\n ?\r)))
-    (1+ pos))
+    (let ((ws-start pos))
+      (while (and (< (1+ pos) end) (memq (char-after (1+ pos)) '(?\s ?\t ?\n ?\r)))
+        (setq pos (1+ pos)))
+      (put-text-property ws-start (1+ pos) 'face nil)
+      (1+ pos)))
    ;; Line comment
    ((and (< (1+ pos) end)
          (eq (char-after pos) ?/)
@@ -328,7 +332,8 @@ operators, keywords, `(', `[', `{', `,', `;', `!', or at start of code."
          ((member word mixed-html--js-constants)
           (put-text-property word-start pos 'face 'mixed-html-constant-face))
          ((member word mixed-html--js-builtins)
-          (put-text-property word-start pos 'face 'mixed-html-builtin-face))))
+          (put-text-property word-start pos 'face 'mixed-html-builtin-face))
+         (t (put-text-property word-start pos 'face nil))))
       pos))
    ;; Number
    ((and (< pos end)
@@ -358,13 +363,14 @@ operators, keywords, `(', `[', `{', `,', `;', `!', or at start of code."
          (eq (char-after pos) ?/)
          (mixed-html--js-slash-is-regex-p pos))
     (mixed-html--fontify-js-regexp pos end))
-   ;; Everything else: punctuation, operators, etc.
-   ((< pos end) (1+ pos))
+   ;; Everything else: punctuation, operators, etc. — clear stale faces
+   ((< pos end)
+    (put-text-property pos (1+ pos) 'face nil)
+    (1+ pos))
    (t pos)))
 
 (defun mixed-html--fontify-js-region (start end)
   "Fontify JavaScript between START and END."
-  (remove-text-properties start end '(face nil))
   (let ((pos start))
     (while (< pos end)
       (setq pos (mixed-html--fontify-js-token pos end)))))
@@ -373,7 +379,6 @@ operators, keywords, `(', `[', `{', `,', `;', `!', or at start of code."
 
 (defun mixed-html--fontify-css-region (start end)
   "Fontify CSS between START and END."
-  (remove-text-properties start end '(face nil))
   (let ((pos start))
     (while (< pos end)
       (setq pos (mixed-html--fontify-css-token pos end start)))))
@@ -382,10 +387,14 @@ operators, keywords, `(', `[', `{', `,', `;', `!', or at start of code."
   "Fontify one CSS token at POS, up to END.  Return new position.
 REGION-START bounds backward searches for brace context."
   (cond
-   ;; Whitespace
+   ;; Whitespace — clear stale faces
    ((and (< pos end)
          (memq (char-after pos) '(?\s ?\t ?\n ?\r)))
-    (1+ pos))
+    (let ((ws-start pos))
+      (while (and (< (1+ pos) end) (memq (char-after (1+ pos)) '(?\s ?\t ?\n ?\r)))
+        (setq pos (1+ pos)))
+      (put-text-property ws-start (1+ pos) 'face nil)
+      (1+ pos)))
    ;; Block comment
    ((and (< (1+ pos) end)
          (eq (char-after pos) ?/)
@@ -417,8 +426,10 @@ REGION-START bounds backward searches for brace context."
                (eq c ?:) (eq c ?*)
                (eq c ?\[))))
     (mixed-html--fontify-css-selector-or-property pos end region-start))
-   ;; Open/close braces, semicolons, etc.
-   ((< pos end) (1+ pos))
+   ;; Open/close braces, semicolons, etc. — clear stale faces
+   ((< pos end)
+    (put-text-property pos (1+ pos) 'face nil)
+    (1+ pos))
    (t pos)))
 
 (defun mixed-html--css-in-rule-block-p (pos &optional bound)
@@ -457,7 +468,8 @@ REGION-START bounds backward searches for brace context."
             (put-text-property prop-start prop-end 'face 'mixed-html-css-property-face)))
         ;; If we stopped at a colon, fontify the value
         (when (and (< pos end) (eq (char-after pos) ?:))
-          (setq pos (1+ pos))  ; skip colon
+          (put-text-property pos (1+ pos) 'face nil)
+          (setq pos (1+ pos))
           (let ((val-start pos))
             ;; Find end of value
             (while (and (< pos end)
@@ -519,7 +531,6 @@ REGION-START bounds backward searches for brace context."
 
 (defun mixed-html--fontify-html-region (start end)
   "Fontify HTML between START and END."
-  (remove-text-properties start end '(face nil))
   (let ((pos start))
     (while (< pos end)
       (cond
@@ -563,8 +574,15 @@ REGION-START bounds backward searches for brace context."
               (progn
                 (put-text-property pos ent-end 'face 'mixed-html-constant-face)
                 (setq pos ent-end))
+            (put-text-property pos (1+ pos) 'face nil)
             (setq pos (1+ pos)))))
-       (t (setq pos (1+ pos)))))))
+       ;; Plain text — explicitly clear any stale face
+       (t (let ((plain-start pos))
+            (while (and (< pos end)
+                        (not (eq (char-after pos) ?<))
+                        (not (eq (char-after pos) ?&)))
+              (setq pos (1+ pos)))
+            (put-text-property plain-start pos 'face nil)))))))
 
 (defun mixed-html--fontify-html-tag (pos end)
   "Fontify an HTML tag starting at POS, up to END.  Return new position."
@@ -587,9 +605,12 @@ REGION-START bounds backward searches for brace context."
       (while (and (< pos end) (not done)
                   (not (eq (char-after pos) ?>)))
         (cond
-         ;; Whitespace
+         ;; Whitespace — clear stale faces
          ((memq (char-after pos) '(?\s ?\t ?\n ?\r))
-          (setq pos (1+ pos)))
+          (let ((ws-start pos))
+            (while (and (< pos end) (memq (char-after pos) '(?\s ?\t ?\n ?\r)))
+              (setq pos (1+ pos)))
+            (put-text-property ws-start pos 'face nil)))
          ;; Self-closing />
          ((and (eq (char-after pos) ?/)
                (< (1+ pos) end)
@@ -611,15 +632,22 @@ REGION-START bounds backward searches for brace context."
                             (eq c ?_) (eq c ?:) (eq c ?-))))
             (setq pos (1+ pos)))
           (put-text-property attr-start pos 'face 'mixed-html-attr-face))
-        ;; Skip whitespace
-        (while (and (< pos end) (memq (char-after pos) '(?\s ?\t ?\n ?\r)))
-          (setq pos (1+ pos)))
-        ;; = and value
-        (when (and (< pos end) (eq (char-after pos) ?=))
-          (setq pos (1+ pos))
-          ;; Skip whitespace
+        ;; Whitespace after attr name — clear stale faces
+        (let ((ws-start pos))
           (while (and (< pos end) (memq (char-after pos) '(?\s ?\t ?\n ?\r)))
             (setq pos (1+ pos)))
+          (when (> pos ws-start)
+            (put-text-property ws-start pos 'face nil)))
+        ;; = and value
+        (when (and (< pos end) (eq (char-after pos) ?=))
+          (put-text-property pos (1+ pos) 'face nil)
+          (setq pos (1+ pos))
+          ;; Whitespace after = — clear stale faces
+          (let ((ws-start pos))
+            (while (and (< pos end) (memq (char-after pos) '(?\s ?\t ?\n ?\r)))
+              (setq pos (1+ pos)))
+            (when (> pos ws-start)
+              (put-text-property ws-start pos 'face nil)))
           ;; Attribute value
           (cond
            ;; Quoted value
@@ -643,7 +671,9 @@ REGION-START bounds backward searches for brace context."
                           (not (memq (char-after pos) '(?> ?\s ?\t ?\n ?\r))))
                 (setq pos (1+ pos)))
               (put-text-property val-start pos 'face 'mixed-html-attr-value-face))))))
-       (t (setq pos (1+ pos)))))
+       ;; Unknown character in tag — clear stale face
+       (t (put-text-property pos (1+ pos) 'face nil)
+          (setq pos (1+ pos)))))
       ;; Skip closing > (unless we already handled />)
       (when (and (not done) (< pos end) (eq (char-after pos) ?>))
         (put-text-property pos (1+ pos) 'face 'mixed-html-tag-face)
