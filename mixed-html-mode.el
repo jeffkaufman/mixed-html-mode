@@ -673,6 +673,11 @@ Aborts early if user input arrives, letting jit-lock retry later."
   (when (and mixed-html--regions-dirty noninteractive)
     (mixed-html--recompute-regions))
   (let ((result (while-no-input
+                  ;; Clear stale faces before re-fontifying, so that
+                  ;; characters which were highlighted during a partial
+                  ;; parse (e.g. inside an incomplete tag) revert to
+                  ;; default when the parse result changes.
+                  (remove-text-properties start end '(face nil))
                   (let ((regions (or mixed-html--last-regions
                                     (mixed-html--find-regions)))
                         (actual-start start)
