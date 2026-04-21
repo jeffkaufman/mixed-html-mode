@@ -17,6 +17,8 @@ same way a web browser would, including understanding that a literal
 `</script>` ends JS even if it's inside quotes.  Then within each
 region it parses appropriately for that language.
 
+See https://www.jefftk.com/p/mixedhtml-mode-for-emacs
+
 ## Install
 
 Copy `mixed-html-mode.el` somewhere on your load path and add to your
